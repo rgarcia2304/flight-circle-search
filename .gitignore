@@ -1,0 +1,7 @@
+.env
+*.env.local
+/data/*.csv
+bin/
+__pycache__/
+venv/
+
