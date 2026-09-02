@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
@@ -19,7 +19,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
       - name: Test (race detector on)
         run: go test -race ./...
 
@@ -28,7 +28,7 @@ jobs:
     needs: build-and-test
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # full history needed to diff against origin/main
       - uses: actions/setup-go@v5
