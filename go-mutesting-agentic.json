@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-03T01:12:19Z",
-  "msi": 0.8289473684210527,
-  "escaped_count": 13,
+  "generated_at": "2026-09-03T10:55:08Z",
+  "msi": 0.8526315789473684,
+  "escaped_count": 14,
   "reminder": "A mutant is an example of how this code could be wrong — it's not a script for the test. Don't assert on the mutant directly. Instead ask: if this code were buggy, what would a caller of the public API observe go wrong? Write a test for that.",
   "mutants": [
     {
@@ -286,6 +286,28 @@
       ],
       "test_files": [
         "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "ff3a5a203ac6d1812f5455fd4a738851",
+      "file": "internal/routes/routes.go",
+      "line": 16,
+      "mutator": "branch/if",
+      "description": "Removes an if-block body so the condition becomes a no-op",
+      "kill_hint": "Write a test that enters this branch and asserts the output or side effect it produces",
+      "diff": "--- Original\n+++ New\n@@ -13,8 +13,8 @@\n func (g RouteGraph) Has(from, to string) bool {\n \tdests, ok := g[from]\n \tif !ok {\n-\t\treturn false\n-\t}\n+\n+}\n \t_, exists := dests[to]\n \treturn exists\n }\n\\ No newline at end of file\n",
+      "context_start_line": 13,
+      "context_lines": [
+        "func (g RouteGraph) Has(from, to string) bool {",
+        "\tdests, ok := g[from]",
+        "\tif !ok {",
+        "\t\treturn false",
+        "\t}",
+        "\t_, exists := dests[to]",
+        "\treturn exists"
+      ],
+      "test_files": [
+        "internal/routes/filter_test.go"
       ]
     }
   ]
