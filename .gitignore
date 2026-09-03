@@ -4,4 +4,8 @@
 bin/
 __pycache__/
 venv/
+go-mutesting-agentic.json
+mutation-report.txt
+report.json
+
 
