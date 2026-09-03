@@ -1,0 +1,292 @@
+{
+  "generated_at": "2026-09-03T01:12:19Z",
+  "msi": 0.8289473684210527,
+  "escaped_count": 13,
+  "reminder": "A mutant is an example of how this code could be wrong — it's not a script for the test. Don't assert on the mutant directly. Instead ask: if this code were buggy, what would a caller of the public API observe go wrong? Write a test for that.",
+  "mutants": [
+    {
+      "id": "6fe73307e3888a98ad15e292058e9fba",
+      "file": "internal/geo/resolve.go",
+      "line": 60,
+      "mutator": "branch/if",
+      "description": "Removes an if-block body so the condition becomes a no-op",
+      "kill_hint": "Write a test that enters this branch and asserts the output or side effect it produces",
+      "diff": "--- Original\n+++ New\n@@ -57,9 +57,9 @@\n \n \tfor _, a := range airports {\n \t\tif !isValidPoint(a.Location) {\n-\t\t\tcontinue\n-\t\t}\n \n+}\n+\n \t\tdist := HaversineDistanceKM(center, a.Location)\n \t\tif dist \u003c= radiusKm {\n \t\t\tif !seen[a.IATA] {\n\\ No newline at end of file\n",
+      "context_start_line": 57,
+      "context_lines": [
+        "",
+        "\tfor _, a := range airports {",
+        "\t\tif !isValidPoint(a.Location) {",
+        "\t\t\tcontinue",
+        "\t\t}",
+        "",
+        "\t\tdist := HaversineDistanceKM(center, a.Location)"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "7d8012f2f595e143568ba5a8c8bcd704",
+      "file": "internal/geo/resolve.go",
+      "line": 37,
+      "mutator": "expression/comparison",
+      "description": "Changes: `if p.Lat \u003c -90 || p.Lat \u003e 90 {` → `if p.Lat \u003c= -90 || p.Lat \u003e 90 {`",
+      "kill_hint": "Write tests at the exact boundary value — one that satisfies the condition and one that doesn't — and assert different outcomes",
+      "diff": "--- Original\n+++ New\n@@ -34,7 +34,7 @@\n }\n \n func isValidPoint(p Point) bool {\n-\tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n+\tif p.Lat \u003c= -90 || p.Lat \u003e 90 {\n \t\treturn false\n \t}\n \tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n\\ No newline at end of file\n",
+      "context_start_line": 34,
+      "context_lines": [
+        "}",
+        "",
+        "func isValidPoint(p Point) bool {",
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "347e922e5da30d9a05b395a957896ee2",
+      "file": "internal/geo/resolve.go",
+      "line": 37,
+      "mutator": "expression/comparison",
+      "description": "Changes: `if p.Lat \u003c -90 || p.Lat \u003e 90 {` → `if p.Lat \u003c -90 || p.Lat \u003e= 90 {`",
+      "kill_hint": "Write tests at the exact boundary value — one that satisfies the condition and one that doesn't — and assert different outcomes",
+      "diff": "--- Original\n+++ New\n@@ -34,7 +34,7 @@\n }\n \n func isValidPoint(p Point) bool {\n-\tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n+\tif p.Lat \u003c -90 || p.Lat \u003e= 90 {\n \t\treturn false\n \t}\n \tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n\\ No newline at end of file\n",
+      "context_start_line": 34,
+      "context_lines": [
+        "}",
+        "",
+        "func isValidPoint(p Point) bool {",
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "5d2e41861c70c9c90771e12fc029d3c1",
+      "file": "internal/geo/resolve.go",
+      "line": 40,
+      "mutator": "expression/comparison",
+      "description": "Changes: `if p.Lng \u003c -180 || p.Lng \u003e 180 {` → `if p.Lng \u003c= -180 || p.Lng \u003e 180 {`",
+      "kill_hint": "Write tests at the exact boundary value — one that satisfies the condition and one that doesn't — and assert different outcomes",
+      "diff": "--- Original\n+++ New\n@@ -37,7 +37,7 @@\n \tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n \t\treturn false\n \t}\n-\tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n+\tif p.Lng \u003c= -180 || p.Lng \u003e 180 {\n \t\treturn false\n \t}\n \treturn true\n\\ No newline at end of file\n",
+      "context_start_line": 37,
+      "context_lines": [
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {",
+        "\t\treturn false",
+        "\t}",
+        "\treturn true"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "71ef4f7ee810439aaf117d3c3404460b",
+      "file": "internal/geo/resolve.go",
+      "line": 40,
+      "mutator": "expression/comparison",
+      "description": "Changes: `if p.Lng \u003c -180 || p.Lng \u003e 180 {` → `if p.Lng \u003c -180 || p.Lng \u003e= 180 {`",
+      "kill_hint": "Write tests at the exact boundary value — one that satisfies the condition and one that doesn't — and assert different outcomes",
+      "diff": "--- Original\n+++ New\n@@ -37,7 +37,7 @@\n \tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n \t\treturn false\n \t}\n-\tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n+\tif p.Lng \u003c -180 || p.Lng \u003e= 180 {\n \t\treturn false\n \t}\n \treturn true\n\\ No newline at end of file\n",
+      "context_start_line": 37,
+      "context_lines": [
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {",
+        "\t\treturn false",
+        "\t}",
+        "\treturn true"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "4f56514ebdebccfc8f5059a97955975b",
+      "file": "internal/geo/resolve.go",
+      "line": 64,
+      "mutator": "expression/comparison",
+      "description": "Changes: `if dist \u003c= radiusKm {` → `if dist \u003c radiusKm {`",
+      "kill_hint": "Write tests at the exact boundary value — one that satisfies the condition and one that doesn't — and assert different outcomes",
+      "diff": "--- Original\n+++ New\n@@ -61,7 +61,7 @@\n \t\t}\n \n \t\tdist := HaversineDistanceKM(center, a.Location)\n-\t\tif dist \u003c= radiusKm {\n+\t\tif dist \u003c radiusKm {\n \t\t\tif !seen[a.IATA] {\n \t\t\t\tseen[a.IATA] = true\n \t\t\t\tresult = append(result, a)\n\\ No newline at end of file\n",
+      "context_start_line": 61,
+      "context_lines": [
+        "\t\t}",
+        "",
+        "\t\tdist := HaversineDistanceKM(center, a.Location)",
+        "\t\tif dist \u003c= radiusKm {",
+        "\t\t\tif !seen[a.IATA] {",
+        "\t\t\t\tseen[a.IATA] = true",
+        "\t\t\t\tresult = append(result, a)"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "89971b9f8b7224f6ca147a1560463b1c",
+      "file": "internal/geo/resolve.go",
+      "line": 60,
+      "mutator": "loop/break",
+      "description": "Changes: `continue` → `break`",
+      "kill_hint": "Write a test that asserts the loop terminates at the right iteration",
+      "diff": "--- Original\n+++ New\n@@ -57,7 +57,7 @@\n \n \tfor _, a := range airports {\n \t\tif !isValidPoint(a.Location) {\n-\t\t\tcontinue\n+\t\t\tbreak\n \t\t}\n \n \t\tdist := HaversineDistanceKM(center, a.Location)\n\\ No newline at end of file\n",
+      "context_start_line": 57,
+      "context_lines": [
+        "",
+        "\tfor _, a := range airports {",
+        "\t\tif !isValidPoint(a.Location) {",
+        "\t\t\tcontinue",
+        "\t\t}",
+        "",
+        "\t\tdist := HaversineDistanceKM(center, a.Location)"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "a25fc8c1aff99deeb5b8fa691e7fcd58",
+      "file": "internal/geo/resolve.go",
+      "line": 24,
+      "mutator": "numbers/decrementer",
+      "description": "Changes: `dLat := (lat2 - lat1) * math.Pi / 180.0` → `dLat := (lat2 - lat1) * math.Pi / 179`",
+      "kill_hint": "Write a test that asserts the exact numeric value",
+      "diff": "--- Original\n+++ New\n@@ -21,7 +21,7 @@\n \tlat1, lon1 := a.Lat, a.Lng\n \tlat2, lon2 := b.Lat, b.Lng\n \n-\tdLat := (lat2 - lat1) * math.Pi / 180.0\n+\tdLat := (lat2 - lat1) * math.Pi / 179\n \tdLon := (lon2 - lon1) * math.Pi / 180.0\n \n \tlat1r := lat1 * math.Pi / 180.0\n\\ No newline at end of file\n",
+      "context_start_line": 21,
+      "context_lines": [
+        "\tlat1, lon1 := a.Lat, a.Lng",
+        "\tlat2, lon2 := b.Lat, b.Lng",
+        "",
+        "\tdLat := (lat2 - lat1) * math.Pi / 180.0",
+        "\tdLon := (lon2 - lon1) * math.Pi / 180.0",
+        "",
+        "\tlat1r := lat1 * math.Pi / 180.0"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "d2cd3507ce2a03ce9ee4810c06087a3f",
+      "file": "internal/geo/resolve.go",
+      "line": 37,
+      "mutator": "numbers/decrementer",
+      "description": "Changes: `if p.Lat \u003c -90 || p.Lat \u003e 90 {` → `if p.Lat \u003c -89 || p.Lat \u003e 90 {`",
+      "kill_hint": "Write a test that asserts the exact numeric value",
+      "diff": "--- Original\n+++ New\n@@ -34,7 +34,7 @@\n }\n \n func isValidPoint(p Point) bool {\n-\tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n+\tif p.Lat \u003c -89 || p.Lat \u003e 90 {\n \t\treturn false\n \t}\n \tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n\\ No newline at end of file\n",
+      "context_start_line": 34,
+      "context_lines": [
+        "}",
+        "",
+        "func isValidPoint(p Point) bool {",
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "5a1f563c3914b484e58071c4fb4b65f7",
+      "file": "internal/geo/resolve.go",
+      "line": 40,
+      "mutator": "numbers/decrementer",
+      "description": "Changes: `if p.Lng \u003c -180 || p.Lng \u003e 180 {` → `if p.Lng \u003c -179 || p.Lng \u003e 180 {`",
+      "kill_hint": "Write a test that asserts the exact numeric value",
+      "diff": "--- Original\n+++ New\n@@ -37,7 +37,7 @@\n \tif p.Lat \u003c -90 || p.Lat \u003e 90 {\n \t\treturn false\n \t}\n-\tif p.Lng \u003c -180 || p.Lng \u003e 180 {\n+\tif p.Lng \u003c -179 || p.Lng \u003e 180 {\n \t\treturn false\n \t}\n \treturn true\n\\ No newline at end of file\n",
+      "context_start_line": 37,
+      "context_lines": [
+        "\tif p.Lat \u003c -90 || p.Lat \u003e 90 {",
+        "\t\treturn false",
+        "\t}",
+        "\tif p.Lng \u003c -180 || p.Lng \u003e 180 {",
+        "\t\treturn false",
+        "\t}",
+        "\treturn true"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "b4824737cb16cd9f9ce63b185f39580a",
+      "file": "internal/geo/resolve.go",
+      "line": 24,
+      "mutator": "numbers/incrementer",
+      "description": "Changes: `dLat := (lat2 - lat1) * math.Pi / 180.0` → `dLat := (lat2 - lat1) * math.Pi / 181`",
+      "kill_hint": "Write a test that asserts the exact numeric value — off-by-one mutations are killed by precise equality assertions",
+      "diff": "--- Original\n+++ New\n@@ -21,7 +21,7 @@\n \tlat1, lon1 := a.Lat, a.Lng\n \tlat2, lon2 := b.Lat, b.Lng\n \n-\tdLat := (lat2 - lat1) * math.Pi / 180.0\n+\tdLat := (lat2 - lat1) * math.Pi / 181\n \tdLon := (lon2 - lon1) * math.Pi / 180.0\n \n \tlat1r := lat1 * math.Pi / 180.0\n\\ No newline at end of file\n",
+      "context_start_line": 21,
+      "context_lines": [
+        "\tlat1, lon1 := a.Lat, a.Lng",
+        "\tlat2, lon2 := b.Lat, b.Lng",
+        "",
+        "\tdLat := (lat2 - lat1) * math.Pi / 180.0",
+        "\tdLon := (lon2 - lon1) * math.Pi / 180.0",
+        "",
+        "\tlat1r := lat1 * math.Pi / 180.0"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "749329d7fd8834c977137b82e7d86d53",
+      "file": "internal/geo/resolve.go",
+      "line": 47,
+      "mutator": "numbers/incrementer",
+      "description": "Changes: `if radiusKm \u003c= 0 {` → `if radiusKm \u003c= 1 {`",
+      "kill_hint": "Write a test that asserts the exact numeric value — off-by-one mutations are killed by precise equality assertions",
+      "diff": "--- Original\n+++ New\n@@ -44,7 +44,7 @@\n }\n \n func ResolveAirports(center Point, radiusKm float64, airports []Airport) ([]Airport, error) {\n-\tif radiusKm \u003c= 0 {\n+\tif radiusKm \u003c= 1 {\n \t\treturn []Airport{}, nil\n \t}\n \n\\ No newline at end of file\n",
+      "context_start_line": 44,
+      "context_lines": [
+        "}",
+        "",
+        "func ResolveAirports(center Point, radiusKm float64, airports []Airport) ([]Airport, error) {",
+        "\tif radiusKm \u003c= 0 {",
+        "\t\treturn []Airport{}, nil",
+        "\t}",
+        ""
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    },
+    {
+      "id": "1720644852ba11a4b7e4c9369e29d309",
+      "file": "internal/geo/resolve.go",
+      "line": 80,
+      "mutator": "statement/return",
+      "description": "Changes: `return \"invalid coordinates\"` → `return \"\"`",
+      "kill_hint": "Write a test that asserts the exact return value — zero-value substitutions are caught by equality assertions",
+      "diff": "--- Original\n+++ New\n@@ -77,5 +77,5 @@\n type errInvalidCoordinatesType struct{}\n \n func (errInvalidCoordinatesType) Error() string {\n-\treturn \"invalid coordinates\"\n+\treturn \"\"\n }\n\\ No newline at end of file\n",
+      "context_start_line": 77,
+      "context_lines": [
+        "type errInvalidCoordinatesType struct{}",
+        "",
+        "func (errInvalidCoordinatesType) Error() string {",
+        "\treturn \"invalid coordinates\"",
+        "}"
+      ],
+      "test_files": [
+        "internal/geo/resolve_test.go"
+      ]
+    }
+  ]
+}

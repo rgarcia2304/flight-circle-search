@@ -6,7 +6,8 @@
       "name": "Ollama",
       "options": { "baseURL": "http://localhost:11434/v1" },
       "models": {
-        "qwen2.5-coder:7b": { "name": "Qwen2.5 Coder 7B" }
+        "qwen2.5-coder:7b": { "name": "Qwen2.5 Coder 7B" },
+        "qwen2.5-coder-16k:latest": { "name": "Qwen2.5 Coder 16k context" }
       }
     },
     "openrouter": {
@@ -14,12 +15,12 @@
       "name": "OpenRouter",
       "options": { "baseURL": "https://openrouter.ai/api/v1", "apiKey": "{env:OPENROUTER_API_KEY}" },
       "models": {
-        "qwen/qwen3-next-80b-a3b-instruct:free": { "name": "Qwen3 Next 80B (free)" }
+        "openrouter/free": { "name": "OpenRouter Free Models Router" }
       }
     }
   },
   "agent": {
-    "build": { "model": "ollama/qwen2.5-coder:7b" },
-    "explore": { "model": "ollama/qwen2.5-coder:7b" }
+    "build": { "model": "openrouter/openrouter/free" },
+    "explore": { "model": "openrouter/openrouter/free" }
   }
 }
