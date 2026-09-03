@@ -237,3 +237,36 @@ func equalStringSets(a, b []string) bool {
 	}
 	return true
 }
+
+func TestHaversineDistanceKM_ExactValues(t *testing.T) {
+	p1 := Point{Lat: 40.6413, Lng: -73.7781}
+	p2 := Point{Lat: 41.6413, Lng: -73.7781}
+	got := HaversineDistanceKM(p1, p2)
+	const kmPerDegreeLat = 111.195
+	tolerance := 1.0
+	if math.Abs(got - kmPerDegreeLat) > tolerance {
+		t.Errorf("1 degree latitude: got %.2f km, want ~%.2f +- %.1f km", got, kmPerDegreeLat, tolerance)
+	}
+}
+
+func TestHaversineDistanceKM_ExactValues_Longitude(t *testing.T) {
+	p1 := Point{Lat: 40.6413, Lng: -73.7781}
+	p2 := Point{Lat: 40.6413, Lng: -72.7781}
+	got := HaversineDistanceKM(p1, p2)
+	const kmPerDegreeLngAt40 = 84.39
+	tolerance := 1.0
+	if math.Abs(got - kmPerDegreeLngAt40) > tolerance {
+		t.Errorf("1 degree longitude at 40.6413N: got %.2f km, want ~%.2f +- %.1f km", got, kmPerDegreeLngAt40, tolerance)
+	}
+}
+
+func TestHaversineDistanceKM_Antipodal(t *testing.T) {
+	p1 := Point{Lat: 0.0, Lng: 0.0}
+	p2 := Point{Lat: 0.0, Lng: 180.0}
+	got := HaversineDistanceKM(p1, p2)
+	const halfCircumferenceKM = 20015.087 // π * 6371.0
+	tolerance := 1.0
+	if math.Abs(got - halfCircumferenceKM) > tolerance {
+		t.Errorf("antipodal equatorial points: got %.2f km, want ~%.2f +- %.1f km", got, halfCircumferenceKM, tolerance)
+	}
+}
