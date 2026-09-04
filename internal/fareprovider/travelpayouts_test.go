@@ -433,7 +433,7 @@ func TestSearch_ConnectionReset_ReturnsErrProviderDown(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		conn.Close()
+		_ = conn.Close()
 	}))
 	defer server.Close()
 
@@ -603,7 +603,7 @@ func TestSearch_OutgoingRequest_AlwaysIncludesCurrencyUSD(t *testing.T) {
 				capturedQuery = r.URL.RawQuery
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_, _ = io.WriteString(w, string(fixture))
+				_, _ = w.Write(fixture)
 			}))
 			defer server.Close()
 

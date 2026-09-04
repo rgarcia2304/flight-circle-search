@@ -205,26 +205,6 @@ func uniqueCityPairs(pairs []routes.AirportPair) []cityPair {
 	return result
 }
 
-func newTestProvider(token string) *fareprovider.Travelpayouts {
-	return fareprovider.NewTravelpayouts(token, "", nil)
-}
-
-func searchCityPairsForTest(provider *fareprovider.Travelpayouts, pairs []cityPair, date string) ([]fareprovider.Fare, error) {
-	var results []fareprovider.Fare
-	for _, cp := range pairs {
-		fares, err := provider.Search(context.Background(), fareprovider.SearchRequest{
-			Origin:      cp.origin,
-			Destination: cp.destination,
-			Date:        date,
-		})
-		if err != nil {
-			continue
-		}
-		results = append(results, fares...)
-	}
-	return results, nil
-}
-
 func searchCityPairs(ctx context.Context, provider *fareprovider.Travelpayouts, pairs []cityPair, date string) ([]fareprovider.Fare, error) {
 	var results []fareprovider.Fare
 	for _, cp := range pairs {
@@ -269,7 +249,7 @@ func loadAirports() ([]geo.Airport, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	records, err := csv.NewReader(f).ReadAll()
 	if err != nil {
@@ -301,7 +281,7 @@ func loadRouteGraph() (routes.RouteGraph, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	graph := make(routes.RouteGraph)
 	scanner := bufio.NewScanner(f)
