@@ -21,6 +21,7 @@
   },
   "agent": {
     "build": { "model": "openrouter/openrouter/free" },
+    "plan": { "model": "openrouter/openrouter/free" },
     "explore": { "model": "openrouter/openrouter/free" }
   }
 }

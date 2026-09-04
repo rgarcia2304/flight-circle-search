@@ -286,3 +286,68 @@ func TestFilterExistingRoutes_LargeGraphPerformance(t *testing.T) {
 func airportCode(prefix string, i int) string {
 	return prefix + string(rune('A'+i/26)) + string(rune('A'+i%26))
 }
+
+// ---------------------------------------------------------------------------
+// FilterByRoutesWithHubs tests
+// ---------------------------------------------------------------------------
+
+func TestFilterByRoutesWithHubs_DirectRoute_Preserved(t *testing.T) {
+	g := graphWith([2]string{"JFK", "LHR"})
+	pairs := []AirportPair{{Origin: airport("JFK"), Destination: airport("LHR")}}
+	got := FilterByRoutesWithHubs(pairs, g, []string{"FRA", "AMS"})
+	want := []string{"JFK->LHR"}
+	if !equalPairSets(iataPairs(got), want) {
+		t.Errorf("direct route: got %v, want %v", iataPairs(got), want)
+	}
+}
+
+func TestFilterByRoutesWithHubs_OneHopViaHub_Passes(t *testing.T) {
+	g := graphWith([2]string{"BOS", "FRA"}, [2]string{"FRA", "TXL"})
+	pairs := []AirportPair{{Origin: airport("BOS"), Destination: airport("TXL")}}
+	got := FilterByRoutesWithHubs(pairs, g, []string{"FRA", "AMS"})
+	want := []string{"BOS->TXL"}
+	if !equalPairSets(iataPairs(got), want) {
+		t.Errorf("1-hop via FRA: got %v, want %v", iataPairs(got), want)
+	}
+}
+
+func TestFilterByRoutesWithHubs_NoPath_Excluded(t *testing.T) {
+	g := graphWith([2]string{"BOS", "CDG"})
+	pairs := []AirportPair{{Origin: airport("BOS"), Destination: airport("TXL")}}
+	got := FilterByRoutesWithHubs(pairs, g, []string{"FRA", "AMS"})
+	if len(got) != 0 {
+		t.Errorf("no path: got %v, want empty", iataPairs(got))
+	}
+}
+
+func TestFilterByRoutesWithHubs_EmptyHubsList_EquivalentToDirect(t *testing.T) {
+	g := graphWith([2]string{"JFK", "LHR"}, [2]string{"JFK", "FRA"}, [2]string{"FRA", "LHR"})
+	pairs := []AirportPair{{Origin: airport("JFK"), Destination: airport("LHR")}}
+
+	withHubs := FilterByRoutesWithHubs(pairs, g, nil)
+	direct := FilterByRoutes(pairs, g)
+
+	if !equalPairSets(iataPairs(withHubs), iataPairs(direct)) {
+		t.Errorf("empty hubs: got %v, want %v", iataPairs(withHubs), iataPairs(direct))
+	}
+}
+
+func TestFilterByRoutesWithHubs_ReverseDirection_AlsoWorks(t *testing.T) {
+	g := graphWith([2]string{"FRA", "BOS"}, [2]string{"TXL", "FRA"})
+	pairs := []AirportPair{{Origin: airport("BOS"), Destination: airport("TXL")}}
+	got := FilterByRoutesWithHubs(pairs, g, []string{"FRA"})
+	want := []string{"BOS->TXL"}
+	if !equalPairSets(iataPairs(got), want) {
+		t.Errorf("reverse direction: got %v, want %v", iataPairs(got), want)
+	}
+}
+
+func TestFilterByRoutesWithHubs_MultipleHubs_TriesAll(t *testing.T) {
+	g := graphWith([2]string{"BOS", "AMS"}, [2]string{"AMS", "TXL"})
+	pairs := []AirportPair{{Origin: airport("BOS"), Destination: airport("TXL")}}
+	got := FilterByRoutesWithHubs(pairs, g, []string{"FRA", "AMS", "CDG"})
+	want := []string{"BOS->TXL"}
+	if !equalPairSets(iataPairs(got), want) {
+		t.Errorf("multiple hubs: got %v, want %v", iataPairs(got), want)
+	}
+}

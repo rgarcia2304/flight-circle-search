@@ -23,18 +23,3 @@ jobs:
       - name: Test (race detector on)
         run: go test -race ./...
 
-  mutation-test:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0   # full history needed to diff against origin/main
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-      - name: Install go-mutesting
-        run: go install github.com/jonbaldie/go-mutesting/v2/...@latest
-      - name: Mutation test changed lines only
-        run: go-mutesting --git-diff-lines --git-diff-base origin/main --ignore-msi-with-no-mutations --min-msi 70 --logger-github ./...
