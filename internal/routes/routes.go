@@ -60,3 +60,52 @@ func FilterByRoutes(pairs []AirportPair, graph RouteGraph) []AirportPair {
 func FilterExistingRoutes(origins, destinations []Airport, routes RouteGraph) []AirportPair {
 	return FilterByRoutes(GenerateAllPairs(origins, destinations), routes)
 }
+
+// FilterByRoutesWithHubs returns the subset of pairs for which a route exists
+// either directly in either direction, or via a single connection through one
+// of the given hub airports. A pair (A, B) is kept if there is a hub H such
+// that A→H and H→B both exist (in either direction, independently).
+//
+// A pair is not added twice if multiple hubs provide a path — each unique
+// AirportPair is returned at most once.
+//
+// Self-pairs (A, A) and pairs that include a hub as one of their endpoints
+// but fail the A→H→B condition for every hub are excluded.
+func FilterByRoutesWithHubs(pairs []AirportPair, graph RouteGraph, hubs []string) []AirportPair {
+	if len(hubs) == 0 {
+		return FilterByRoutes(pairs, graph)
+	}
+
+	hubSet := make(map[string]struct{}, len(hubs))
+	for _, h := range hubs {
+		hubSet[h] = struct{}{}
+	}
+
+	result := make([]AirportPair, 0, len(pairs))
+	for _, p := range pairs {
+		from := p.Origin.IATA
+		to := p.Destination.IATA
+		if graph.Has(from, to) || graph.Has(to, from) {
+			result = append(result, p)
+			continue
+		}
+		if reachableViaHub(from, to, graph, hubSet) {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func reachableViaHub(from, to string, graph RouteGraph, hubs map[string]struct{}) bool {
+	for hub := range hubs {
+		if hub == from || hub == to {
+			continue
+		}
+		// A→H + H→B
+		if (graph.Has(from, hub) || graph.Has(hub, from)) &&
+			(graph.Has(hub, to) || graph.Has(to, hub)) {
+			return true
+		}
+	}
+	return false
+}
