@@ -26,19 +26,23 @@ func validRequest() SearchRequest {
 
 func loadFixture(t *testing.T, path string) string {
 	t.Helper()
+	b, err := fixtureBytes(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", path, err)
+	}
+	return string(b)
+}
+
+func fixtureBytes(path string) ([]byte, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("getwd: %v", err)
+		return nil, err
 	}
 	b, err := os.ReadFile(cwd + "/" + path)
 	if err != nil {
-		b2, err2 := os.ReadFile(path)
-		if err2 != nil {
-			t.Fatalf("read fixture %s: %v (also tried %s: %v)", path, err, cwd+"/"+path, err2)
-		}
-		return string(b2)
+		b, err = os.ReadFile(path)
 	}
-	return string(b)
+	return b, err
 }
 
 // ---------------------------------------------------------------------------

@@ -11,7 +11,9 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/rgarcia2304/flight-circle-search/internal/cache"
 	"github.com/rgarcia2304/flight-circle-search/internal/fareprovider"
 	"github.com/rgarcia2304/flight-circle-search/internal/geo"
 	"github.com/rgarcia2304/flight-circle-search/internal/routes"
@@ -27,6 +29,7 @@ var (
 	destR       = flag.Float64("dest-r", 644, "destination circle radius in km (default: 644km = 400mi)")
 	connecting  = flag.Bool("connecting", false, "include 1-hop connecting routes via major hub airports")
 	token       = flag.String("token", os.Getenv("TRAVELPAYOUTS_TOKEN"), "Travelpayouts API token")
+	redisAddr   = flag.String("redis-addr", os.Getenv("REDIS_ADDR"), "Redis address for fare cache (default: disabled)")
 )
 
 var hubAirports = []string{
@@ -170,6 +173,15 @@ func search(date string) ([]fareprovider.Fare, error) {
 	cityPairs := uniqueCityPairs(routeAirportPairs)
 
 	provider := fareprovider.NewTravelpayouts(*token, "", nil)
+	if *redisAddr != "" {
+		c, err := cache.NewRedisCache(*redisAddr)
+		if err != nil {
+			return nil, fmt.Errorf("cache: %w", err)
+		}
+		defer func() { _ = c.Close() }()
+		provider.SetCache(c, time.Hour)
+		log.Printf("fare cache enabled: redis=%s ttl=1h", *redisAddr)
+	}
 
 	results, err := searchCityPairs(context.Background(), provider, cityPairs, date)
 	if err != nil {
