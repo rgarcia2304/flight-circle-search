@@ -13,19 +13,24 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rgarcia2304/flight-circle-search/internal/cache"
 )
 
 const (
 	defaultBaseURL    = "https://api.travelpayouts.com/aviasales"
 	defaultUserAgent  = "flight-circle-search/1.0"
 	defaultTimeout    = 10 * time.Second
+	defaultCacheTTL   = time.Hour
 	maxResponseBytes  = 1 << 20
 )
 
 type Travelpayouts struct {
-	token     string
-	baseURL   string
+	token      string
+	baseURL    string
 	httpClient *http.Client
+	cache      cache.Cache
+	cacheTTL   time.Duration
 }
 
 func NewTravelpayouts(token, baseURL string, httpClient *http.Client) *Travelpayouts {
@@ -39,6 +44,14 @@ func NewTravelpayouts(token, baseURL string, httpClient *http.Client) *Travelpay
 		token:      token,
 		baseURL:    baseURL,
 		httpClient: httpClient,
+		cacheTTL:   defaultCacheTTL,
+	}
+}
+
+func (t *Travelpayouts) SetCache(c cache.Cache, ttl time.Duration) {
+	t.cache = c
+	if ttl > 0 {
+		t.cacheTTL = ttl
 	}
 }
 
@@ -47,6 +60,27 @@ func (t *Travelpayouts) Search(ctx context.Context, req SearchRequest) ([]Fare, 
 		return nil, err
 	}
 
+	key := cache.FareKey(req.Origin, req.Destination, req.Date)
+	if t.cache != nil {
+		if val, err := t.cache.Get(ctx, key); err == nil {
+			return decodeFares(val)
+		}
+	}
+
+	fares, err := t.fetchWithFallback(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if t.cache != nil {
+		if encoded, err := encodeFares(fares); err == nil {
+			_ = t.cache.Set(ctx, key, encoded, t.cacheTTL)
+		}
+	}
+	return fares, nil
+}
+
+func (t *Travelpayouts) fetchWithFallback(ctx context.Context, req SearchRequest) ([]Fare, error) {
 	fares, err := t.searchAtDate(ctx, req.Origin, req.Destination, req.Date)
 	if err != nil {
 		return nil, err
@@ -202,6 +236,21 @@ func mapFares(flights []tpFlight) ([]Fare, error) {
 			Transfers:           f.Transfers,
 			Link:                f.Link,
 		})
+	}
+	return fares, nil
+}
+
+func encodeFares(fares []Fare) ([]byte, error) {
+	if fares == nil {
+		fares = []Fare{}
+	}
+	return json.Marshal(fares)
+}
+
+func decodeFares(data []byte) ([]Fare, error) {
+	var fares []Fare
+	if err := json.Unmarshal(data, &fares); err != nil {
+		return nil, fmt.Errorf("decode cached fares: %w", err)
 	}
 	return fares, nil
 }
