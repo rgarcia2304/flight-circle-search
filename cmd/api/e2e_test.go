@@ -25,11 +25,14 @@ import (
 )
 
 func TestLive_E2E(t *testing.T) {
-	// Requires TRAVELPAYOUTS_API_KEY and docker-compose up -d postgres
-	token := os.Getenv("TRAVELPAYOUTS_API_KEY")
-	if token == "" {
-		t.Skip("TRAVELPAYOUTS_API_KEY not set, skipping live E2E test")
+	// Requires at least TRAVELPAYOUTS_API_KEY (default provider) or DUFFEL_API_TOKEN + DUFFEL_LIVE_MODE=1.
+	tpToken := os.Getenv("TRAVELPAYOUTS_API_KEY")
+	duffelToken := os.Getenv("DUFFEL_API_TOKEN")
+	duffelLive := os.Getenv("DUFFEL_LIVE_MODE") == "1"
+	if tpToken == "" && (!duffelLive || duffelToken == "") {
+		t.Skip("TRAVELPAYOUTS_API_KEY (or DUFFEL_API_TOKEN + DUFFEL_LIVE_MODE=1) not set, skipping live E2E test")
 	}
+	token := tpToken
 
 	// Requires docker-compose up -d postgres first.
 	pool, err := pgxpool.New(context.Background(),
@@ -57,7 +60,12 @@ func TestLive_E2E(t *testing.T) {
 	}()
 
 	repo := jobengine.NewPostgresRepository(pool)
-	fp := fareprovider.NewTravelpayouts(token, "", nil)
+	var fp fareprovider.FareProvider
+	if os.Getenv("DUFFEL_LIVE_MODE") == "1" && os.Getenv("DUFFEL_API_TOKEN") != "" {
+		fp = fareprovider.NewDuffel(os.Getenv("DUFFEL_API_TOKEN"), "", nil)
+	} else {
+		fp = fareprovider.NewTravelpayouts(token, "", nil)
+	}
 
 	enqueuer := &riverEnqueuer{client: mustNewRiverClient(ctx, pool)}
 	svc := jobengine.NewService(repo, newCSVAirportSource(), enqueuer)
@@ -200,7 +208,7 @@ func mustNewWorkerClient(ctx context.Context, pool *pgxpool.Pool, w *worker.Fare
 	river.AddWorker(workers, w)
 
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues: map[string]river.QueueConfig{"search": {MaxWorkers: 2}},
+		Queues: map[string]river.QueueConfig{"search": {MaxWorkers: 20}},
 		Workers: workers,
 	})
 	if err != nil {
