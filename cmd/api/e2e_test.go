@@ -247,7 +247,7 @@ func postSubmit(ctx context.Context, url string, req liveSubmitRequest) (string,
 	if err != nil {
 		return "", 0, fmt.Errorf("post: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusAccepted {
 		return "", 0, fmt.Errorf("submit failed (%d): %s", resp.StatusCode, data)
@@ -272,12 +272,14 @@ func pollUntilDone(ctx context.Context, t *testing.T, url string) *liveJobStatus
 		case <-ctx.Done():
 			t.Fatalf("context cancelled")
 		case <-timeout:
+			var job liveJobStatus
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 			resp, _ := http.DefaultClient.Do(req)
-			data, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			var job liveJobStatus
-			_ = json.Unmarshal(data, &job)
+			if resp != nil {
+				data, _ := io.ReadAll(resp.Body)
+				_ = resp.Body.Close()
+				_ = json.Unmarshal(data, &job)
+			}
 			t.Fatalf("timeout waiting for job. Last: status=%s completed=%d/%d failed=%d",
 				job.Status, job.CompletedPairs, job.TotalPairs, job.FailedPairs)
 		case <-ticker.C:
@@ -288,7 +290,7 @@ func pollUntilDone(ctx context.Context, t *testing.T, url string) *liveJobStatus
 				continue
 			}
 			data, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				t.Logf("poll status %d: %s", resp.StatusCode, data)
 				continue

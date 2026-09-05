@@ -16,11 +16,9 @@ import (
 // --- mocks ---
 
 type mockRepo struct {
-	mu        sync.Mutex
+	mu         sync.Mutex
 	createdJob *SearchJob
-	created   []SearchJobResult
-	enqueued  bool
-	failEnqueue error
+	created    []SearchJobResult
 	pending    map[uuid.UUID][]SearchJobResult
 }
 

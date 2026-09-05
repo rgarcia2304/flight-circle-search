@@ -125,7 +125,7 @@ func submitJob(from, to string) (string, int, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("post: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusAccepted {
 		return "", 0, fmt.Errorf("submit failed (%d): %s", resp.StatusCode, data)
@@ -156,7 +156,7 @@ func pollJob(ctx context.Context, jobID string) (*jobStatus, error) {
 			continue
 		}
 		data, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, fmt.Errorf("job not found")
 		}

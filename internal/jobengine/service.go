@@ -103,15 +103,6 @@ func (s *Service) Submit(ctx context.Context, req SearchRequest) (uuid.UUID, int
 	return id, len(results), nil
 }
 
-func resultsWithID(jobID uuid.UUID, results []SearchJobResult) []SearchJobResult {
-	out := make([]SearchJobResult, len(results))
-	for i, r := range results {
-		r.JobID = jobID
-		out[i] = r
-	}
-	return out
-}
-
 // GeneratedPair is a single (origin, destination, date) tuple for a job.
 type GeneratedPair struct {
 	Origin      string
