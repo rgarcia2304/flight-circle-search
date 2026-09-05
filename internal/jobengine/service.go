@@ -110,8 +110,9 @@ type GeneratedPair struct {
 	Date        string
 }
 
-// GenerateTuples expands a request into the full combinatorial set of valid (origin, destination, date) tuples.
-// Uses the existing route graph to filter to known routes.
+// GenerateTuples expands a request into the full combinatorial set of valid
+// (origin, destination, date) tuples. Uses the existing route graph to filter
+// to known routes, with 1-hop routing via the configured hub list.
 func (s *Service) GenerateTuples(ctx context.Context, req SearchRequest) ([]GeneratedPair, error) {
 	if err := validateRequest(req); err != nil {
 		return nil, err

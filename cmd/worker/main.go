@@ -27,18 +27,35 @@ const (
 func main() {
 	dbURL := flag.String("db-url", envOr("DATABASE_URL", "postgres://dev:dev@localhost:5432/flightsearch"),
 		"Postgres connection string")
-	token := flag.String("token", envOr("TRAVELPAYOUTS_API_KEY", ""),
+	provider := flag.String("provider", envOr("FARE_PROVIDER", "travelpayouts"),
+		"fare provider: 'travelpayouts' or 'duffel'")
+	duffelToken := flag.String("duffel-token", envOr("DUFFEL_API_TOKEN", ""),
+		"Duffel API token (or set DUFFEL_API_TOKEN env var)")
+	tpToken := flag.String("tp-token", envOr("TRAVELPAYOUTS_API_KEY", ""),
 		"Travelpayouts API token (or set TRAVELPAYOUTS_API_KEY env var)")
-	rps := flag.Float64("rps", defaultRPS, "max requests per second to Travelpayouts API per worker")
+	rps := flag.Float64("rps", defaultRPS, "max requests per second to provider API per worker")
 	maxConcurrent := flag.Int("max-concurrent", defaultMaxConcurrent, "max concurrent in-flight API calls per worker")
 	queueWorkers := flag.Int("queue-workers", 1, "number of concurrent River queue workers per instance")
 	flag.Parse()
 
-	if *token == "" {
-		log.Fatal("TRAVELPAYOUTS_API_KEY is required")
-	}
 	if *dbURL == "" {
 		log.Fatal("-db-url or DATABASE_URL is required")
+	}
+
+	var fp fareprovider.FareProvider
+	switch *provider {
+	case "duffel":
+		if *duffelToken == "" {
+			log.Fatal("DUFFEL_API_TOKEN is required for --provider=duffel")
+		}
+		fp = fareprovider.NewDuffel(*duffelToken, "", nil)
+	case "travelpayouts":
+		if *tpToken == "" {
+			log.Fatal("TRAVELPAYOUTS_API_KEY is required for --provider=travelpayouts")
+		}
+		fp = fareprovider.NewTravelpayouts(*tpToken, "", nil)
+	default:
+		log.Fatalf("unknown provider %q (want 'duffel' or 'travelpayouts')", *provider)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +72,6 @@ func main() {
 	}
 
 	repo := jobengine.NewPostgresRepository(pool)
-	fp := fareprovider.NewTravelpayouts(*token, "", nil)
 	rateLimiter := worker.NewRateLimiter(*rps, *maxConcurrent)
 	fareWorker := worker.NewFareWorker(repo, fp, rateLimiter)
 
@@ -78,8 +94,8 @@ func main() {
 		log.Fatalf("start river client: %v", err)
 	}
 
-	log.Printf("worker started: rps=%.1f max_concurrent=%d queue_workers=%d",
-		*rps, *maxConcurrent, *queueWorkers)
+	log.Printf("worker started: provider=%s rps=%.1f max_concurrent=%d queue_workers=%d",
+		*provider, *rps, *maxConcurrent, *queueWorkers)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

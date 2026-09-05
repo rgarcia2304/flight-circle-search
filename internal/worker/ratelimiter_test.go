@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,9 +11,9 @@ func TestRateLimiter_SemaphoreCapsConcurrency(t *testing.T) {
 	rl := NewRateLimiter(1000, 3) // very high RPS, cap concurrent = 3
 	const N = 20
 
-	var inFlight atomic.Int64
 	var mu sync.Mutex
-	var maxObserved int64
+	cond := make(chan struct{})
+	var completed int
 
 	var wg sync.WaitGroup
 	for i := 0; i < N; i++ {
@@ -25,26 +24,43 @@ func TestRateLimiter_SemaphoreCapsConcurrency(t *testing.T) {
 				t.Errorf("wait: %v", err)
 				return
 			}
-			cur := inFlight.Add(1)
-			defer inFlight.Add(-1)
+			// Hold the slot until all 20 goroutines have acquired it, so the
+			// semaphore is provably saturated. Then release so the test can finish.
 			mu.Lock()
-			if cur > maxObserved {
-				maxObserved = cur
-			}
+			completed++
 			mu.Unlock()
-			time.Sleep(20 * time.Millisecond)
+			<-cond
 			rl.Release()
 		}()
 	}
+
+	// Wait for the semaphore to saturate (3 slots taken, 17 goroutines blocked).
+	deadline := time.After(2 * time.Second)
+	for {
+		mu.Lock()
+		c := completed
+		mu.Unlock()
+		if c >= 3 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("only %d goroutines acquired the semaphore, want at least 3", c)
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+
+	// Now assert the in-flight count from the limiter's own counter is exactly 3.
+	if got := rl.InFlight(); got != 3 {
+		t.Errorf("in-flight after saturation = %d, want 3", got)
+	}
+
+	// Release all held goroutines.
+	close(cond)
 	wg.Wait()
 
-	mu.Lock()
-	defer mu.Unlock()
-	if maxObserved > 3 {
-		t.Errorf("max in-flight = %d, want <= 3", maxObserved)
-	}
-	if maxObserved < 2 {
-		t.Errorf("max in-flight = %d, want at least 2 (to prove parallelism)", maxObserved)
+	if got := rl.InFlight(); got != 0 {
+		t.Errorf("in-flight after wg.Wait = %d, want 0", got)
 	}
 }
 
