@@ -1,316 +1,261 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"context"
-	"encoding/csv"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/rgarcia2304/flight-circle-search/internal/cache"
-	"github.com/rgarcia2304/flight-circle-search/internal/fareprovider"
-	"github.com/rgarcia2304/flight-circle-search/internal/geo"
-	"github.com/rgarcia2304/flight-circle-search/internal/routes"
 )
 
 var (
-	date        = flag.String("date", "", "departure date (YYYY-MM-DD)")
+	apiURL = flag.String("api-url", envOr("API_URL", "http://localhost:8080"),
+		"Base URL for the job API (default: http://localhost:8080)")
+	date        = flag.String("date", "", "departure date (YYYY-MM-DD) — use depart_from and depart_to for ranges")
+	departFrom  = flag.String("depart-from", "", "start of date range (YYYY-MM-DD)")
+	departTo    = flag.String("depart-to", "", "end of date range (YYYY-MM-DD)")
 	originLat   = flag.Float64("origin-lat", 40.6413, "origin circle center latitude")
 	originLng   = flag.Float64("origin-lng", -73.7781, "origin circle center longitude")
-	originR     = flag.Float64("origin-r", 322, "origin circle radius in km (200 miles)")
-	destLat     = flag.Float64("dest-lat", 52.3667, "destination circle center latitude (default: Berlin)")
-	destLng     = flag.Float64("dest-lng", 13.5033, "destination circle center longitude (default: Berlin)")
-	destR       = flag.Float64("dest-r", 644, "destination circle radius in km (default: 644km = 400mi)")
-	connecting  = flag.Bool("connecting", false, "include 1-hop connecting routes via major hub airports")
-	token       = flag.String("token", os.Getenv("TRAVELPAYOUTS_TOKEN"), "Travelpayouts API token")
-	redisAddr   = flag.String("redis-addr", os.Getenv("REDIS_ADDR"), "Redis address for fare cache (default: disabled)")
+	originR     = flag.Float64("origin-r", 322, "origin circle radius in km")
+	destLat     = flag.Float64("dest-lat", 52.3667, "destination circle center latitude")
+	destLng     = flag.Float64("dest-lng", 13.5033, "destination circle center longitude")
+	destR       = flag.Float64("dest-r", 644, "destination circle radius in km")
+	pollInterval = flag.Duration("poll", 2*time.Second, "poll interval for job status")
+	pollTimeout  = flag.Duration("timeout", 10*time.Minute, "max time to wait for job completion")
 )
-
-var hubAirports = []string{
-	"FRA", "AMS", "CDG", "LHR", "MAD",
-	"MUC", "FCO", "BCN", "ZRH", "DUS", "BRU",
-}
-
-var airportToCity = map[string]string{
-	// East Coast US
-	"JFK": "NYC", "LGA": "NYC", "EWR": "NYC",
-	"BOS": "BOS",
-	"PHL": "PHL", "PNE": "PHL",
-	"DCA": "WAS", "BWI": "WAS", "IAD": "WAS",
-	"ALB": "ALB",
-	"PVD": "PVD",
-	"MDT": "MDT", "HAR": "MDT",
-	// London
-	"LHR": "LON", "LGW": "LON", "STN": "LON", "LTN": "LON",
-	// Paris
-	"CDG": "PAR", "ORY": "PAR", "BVA": "PAR",
-	// Amsterdam
-	"AMS": "AMS",
-	// Frankfurt
-	"FRA": "FRA",
-	// Madrid
-	"MAD": "MAD",
-	// Berlin (center hub for 400mi radius)
-	"TXL": "BER", "SXF": "BER", "THF": "BER",
-	// Berlin area: Prague
-	"PRG": "PRG",
-	// Berlin area: Leipzig
-	"LEJ": "LEJ",
-	// Berlin area: Dresden
-	"DRS": "DRS",
-	// Berlin area: Hamburg
-	"HAM": "HAM",
-	// Berlin area: Hanover
-	"HAJ": "HAJ",
-	// Berlin area: Copenhagen
-	"CPH": "CPH",
-	// Berlin area: Wroclaw
-	"WRO": "WRO",
-	// Berlin area: Poznan
-	"POZ": "POZ",
-	// Berlin area: Bremen
-	"BRE": "BRE",
-	// Berlin area: Nuremberg
-	"NUE": "NUE",
-}
 
 func main() {
 	flag.Parse()
 
-	if *date == "" || *token == "" {
-		fmt.Println("Usage: livetest -date=YYYY-MM-DD [-origin-lat=X -origin-lng=Y -origin-r=KM -dest-lat=X -dest-lng=Y -dest-r=KM]")
-		fmt.Println("Requires: TRAVELPAYOUTS_TOKEN env var or -token flag")
+	if *date == "" && (*departFrom == "" || *departTo == "") {
+		fmt.Println("Usage: livetest -api-url=http://localhost:8080 -date=YYYY-MM-DD [-depart-from=Y -depart-to=Z]")
+		fmt.Println("  or: livetest -api-url=http://localhost:8080 -depart-from=YYYY-MM-DD -depart-to=YYYY-MM-DD")
 		os.Exit(1)
 	}
 
-	if err := run(*date); err != nil {
+	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(date string) error {
-	results, err := search(date)
+type submitRequest struct {
+	OriginLat  float64 `json:"origin_lat"`
+	OriginLng  float64 `json:"origin_lng"`
+	OriginR    float64 `json:"origin_r"`
+	DestLat    float64 `json:"dest_lat"`
+	DestLng    float64 `json:"dest_lng"`
+	DestR      float64 `json:"dest_r"`
+	DepartFrom string  `json:"depart_from"`
+	DepartTo   string  `json:"depart_to"`
+}
+
+type submitResponse struct {
+	JobID      string `json:"job_id"`
+	TotalPairs int    `json:"total_pairs"`
+}
+
+type jobStatus struct {
+	ID             string   `json:"id"`
+	Status         string   `json:"status"`
+	TotalPairs     int      `json:"total_pairs"`
+	CompletedPairs int      `json:"completed_pairs"`
+	FailedPairs    int      `json:"failed_pairs"`
+	ErrorSummary   *string  `json:"error_summary,omitempty"`
+	Results        []result `json:"results,omitempty"`
+}
+
+type result struct {
+	Origin        string          `json:"origin"`
+	Destination   string          `json:"destination"`
+	DepartureDate string          `json:"departure_date"`
+	Status        string          `json:"status"`
+	Fare          json.RawMessage `json:"fare,omitempty"`
+	Error         *string         `json:"error,omitempty"`
+}
+
+func run() error {
+	from, to := dateRange()
+	log.Printf("Submitting job: origin=(%.4f,%.4f)±%.0fkm dest=(%.4f,%.4f)±%.0fkm dates=%s..%s",
+		*originLat, *originLng, *originR, *destLat, *destLng, *destR, from, to)
+
+	jobID, total, err := submitJob(from, to)
 	if err != nil {
-		return err
+		return fmt.Errorf("submit: %w", err)
+	}
+	log.Printf("Job submitted: id=%s pairs=%d", jobID, total)
+
+	ctx, cancel := context.WithTimeout(context.Background(), *pollTimeout)
+	defer cancel()
+
+	job, err := pollJob(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("poll: %w", err)
 	}
 
-	fmt.Printf("\n=== Flight Search: %s ===\n", date)
-	fmt.Printf("Origin circle: (%.4f, %.4f) ±%.0fkm\n",
-		*originLat, *originLng, *originR)
-	fmt.Printf("Dest circle:   (%.4f, %.4f) ±%.0fkm\n",
-		*destLat, *destLng, *destR)
-	fmt.Printf("Fares found: %d\n\n", len(results))
+	printResults(job)
+	return nil
+}
 
-	if len(results) == 0 {
-		fmt.Println("No fares found for the given corridor and date.")
-		return nil
+func dateRange() (from, to string) {
+	if *date != "" {
+		return *date, *date
+	}
+	return *departFrom, *departTo
+}
+
+func submitJob(from, to string) (string, int, error) {
+	body, _ := json.Marshal(submitRequest{
+		OriginLat:  *originLat,
+		OriginLng:  *originLng,
+		OriginR:    *originR,
+		DestLat:    *destLat,
+		DestLng:    *destLng,
+		DestR:      *destR,
+		DepartFrom: from,
+		DepartTo:   to,
+	})
+	resp, err := http.Post(*apiURL+"/jobs", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return "", 0, fmt.Errorf("post: %w", err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusAccepted {
+		return "", 0, fmt.Errorf("submit failed (%d): %s", resp.StatusCode, data)
+	}
+	var r submitResponse
+	if err := json.Unmarshal(data, &r); err != nil {
+		return "", 0, fmt.Errorf("decode response: %w", err)
+	}
+	return r.JobID, r.TotalPairs, nil
+}
+
+func pollJob(ctx context.Context, jobID string) (*jobStatus, error) {
+	ticker := time.NewTicker(*pollInterval)
+	defer ticker.Stop()
+	url := fmt.Sprintf("%s/jobs/%s?include=results", *apiURL, jobID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting for job: %w", ctx.Err())
+		case <-ticker.C:
+		}
+
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("poll error: %v", err)
+			continue
+		}
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("job not found")
+		}
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("poll status %d: %s", resp.StatusCode, data)
+			continue
+		}
+
+		var job jobStatus
+		if err := json.Unmarshal(data, &job); err != nil {
+			log.Printf("decode error: %v", err)
+			continue
+		}
+		if job.Status == "complete" || job.Status == "failed" {
+			return &job, nil
+		}
+		log.Printf("Job %s: status=%s completed=%d/%d failed=%d",
+			jobID, job.Status, job.CompletedPairs, job.TotalPairs, job.FailedPairs)
+	}
+}
+
+type fare struct {
+	Origin  string
+	Dest    string
+	Price   int
+	Airline string
+	Flight  string
+	Date    string
+	Duration int
+}
+
+func printResults(job *jobStatus) {
+	fmt.Printf("\n=== Job %s (%s) ===\n", job.ID, job.Status)
+	fmt.Printf("Pairs: %d completed, %d failed out of %d total\n\n",
+		job.CompletedPairs, job.FailedPairs, job.TotalPairs)
+
+	var fares []fare
+	for _, r := range job.Results {
+		if r.Status != "complete" || len(r.Fare) == 0 {
+			continue
+		}
+		var faresForPair []map[string]any
+		if err := json.Unmarshal(r.Fare, &faresForPair); err != nil {
+			continue
+		}
+		for _, f := range faresForPair {
+			if price, ok := f["price"].(float64); ok {
+				fares = append(fares, fare{
+					Origin:  r.Origin,
+					Dest:    r.Destination,
+					Price:   int(price * 100),
+					Airline: str(f["airline"]),
+					Flight:  str(f["flight_number"]),
+					Date:    r.DepartureDate,
+					Duration: intf(f["duration"]),
+				})
+			}
+		}
+	}
+
+	sort.Slice(fares, func(i, j int) bool { return fares[i].Price < fares[j].Price })
+
+	if len(fares) == 0 {
+		fmt.Println("No fares found.")
+		return
 	}
 
 	fmt.Printf("%-3s %-7s %-12s %-6s %-8s %-12s %s\n",
 		"#", "PRICE", "ROUTE", "AIRLINE", "FLIGHT", "DEP_DATE", "DURATION")
 	fmt.Println(strings.Repeat("-", 75))
-	for i, f := range results {
+	for i, f := range fares {
 		if i >= 20 {
-			fmt.Printf("... and %d more results\n", len(results)-i)
+			fmt.Printf("... and %d more results\n", len(fares)-i)
 			break
 		}
-		fmt.Printf("%-3d $%-6.2f %s→%s (%s→%s) %-6s %-8s %s %d min\n",
+		fmt.Printf("%-3d $%-6.2f %s→%s %-6s %-8s %-12s %d min\n",
 			i+1, float64(f.Price)/100,
-			f.Origin, f.Destination,
-			f.OriginAirport, f.DestinationAirport,
-			f.Airline, f.FlightNumber,
-			f.DepartureAt.Format("2006-01-02"),
-			int(f.Duration.Minutes()))
+			f.Origin, f.Dest,
+			f.Airline, f.Flight, f.Date, f.Duration)
 	}
-	return nil
 }
 
-func search(date string) ([]fareprovider.Fare, error) {
-	airports, err := loadAirports()
-	if err != nil {
-		return nil, fmt.Errorf("load airports: %w", err)
+func str(v any) string {
+	if s, ok := v.(string); ok {
+		return s
 	}
-
-	graph, err := loadRouteGraph()
-	if err != nil {
-		return nil, fmt.Errorf("load routes: %w", err)
-	}
-
-	originCircle := geo.Point{Lat: *originLat, Lng: *originLng}
-	destCircle := geo.Point{Lat: *destLat, Lng: *destLng}
-
-	origins, err := geo.ResolveAirports(originCircle, *originR, airports)
-	if err != nil {
-		return nil, fmt.Errorf("resolve origin airports: %w", err)
-	}
-
-	destinations, err := geo.ResolveAirports(destCircle, *destR, airports)
-	if err != nil {
-		return nil, fmt.Errorf("resolve destination airports: %w", err)
-	}
-
-	var routeAirportPairs []routes.AirportPair
-	if *connecting {
-		allPairs := routes.GenerateAllPairs(
-			toRoutesAirports(origins),
-			toRoutesAirports(destinations),
-		)
-		routeAirportPairs = routes.FilterByRoutesWithHubs(allPairs, graph, hubAirports)
-	} else {
-		routeAirportPairs = routes.FilterExistingRoutes(
-			toRoutesAirports(origins),
-			toRoutesAirports(destinations),
-			graph,
-		)
-	}
-
-	cityPairs := uniqueCityPairs(routeAirportPairs)
-
-	provider := fareprovider.NewTravelpayouts(*token, "", nil)
-	if *redisAddr != "" {
-		c, err := cache.NewRedisCache(*redisAddr)
-		if err != nil {
-			return nil, fmt.Errorf("cache: %w", err)
-		}
-		defer func() { _ = c.Close() }()
-		provider.SetCache(c, time.Hour)
-		log.Printf("fare cache enabled: redis=%s ttl=1h", *redisAddr)
-	}
-
-	results, err := searchCityPairs(context.Background(), provider, cityPairs, date)
-	if err != nil {
-		return nil, fmt.Errorf("search: %w", err)
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Price < results[j].Price
-	})
-
-	return results, nil
+	return ""
 }
 
-type cityPair struct{ origin, destination string }
-
-func uniqueCityPairs(pairs []routes.AirportPair) []cityPair {
-	seen := make(map[cityPair]struct{})
-	var result []cityPair
-	for _, p := range pairs {
-		cp := cityPair{
-			origin:      airportToCity[p.Origin.IATA],
-			destination: airportToCity[p.Destination.IATA],
-		}
-		if cp.origin == "" || cp.destination == "" {
-			continue
-		}
-		if _, ok := seen[cp]; ok {
-			continue
-		}
-		seen[cp] = struct{}{}
-		result = append(result, cp)
+func intf(v any) int {
+	if f, ok := v.(float64); ok {
+		return int(f)
 	}
-	return result
+	return 0
 }
 
-func searchCityPairs(ctx context.Context, provider *fareprovider.Travelpayouts, pairs []cityPair, date string) ([]fareprovider.Fare, error) {
-	var results []fareprovider.Fare
-	for _, cp := range pairs {
-		fares, err := provider.Search(ctx, fareprovider.SearchRequest{
-			Origin:      cp.origin,
-			Destination: cp.destination,
-			Date:        date,
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "  ! %s→%s: %v\n", cp.origin, cp.destination, err)
-			continue
-		}
-		results = append(results, fares...)
-		if len(pairs) > 5 {
-			runtime.Gosched()
-		}
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return results, nil
-}
-
-func toRoutesAirports(ga []geo.Airport) []routes.Airport {
-	out := make([]routes.Airport, len(ga))
-	for i, a := range ga {
-		out[i] = routes.Airport{IATA: a.IATA, Name: a.Name, Location: a.Location}
-	}
-	return out
-}
-
-func dataPath(name string) string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return name
-	}
-	if strings.HasSuffix(cwd, "/cmd/livetest") {
-		return "../../" + name
-	}
-	return name
-}
-
-func loadAirports() ([]geo.Airport, error) {
-	f, err := os.Open(dataPath("data/airports.csv"))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-
-	records, err := csv.NewReader(f).ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	var airports []geo.Airport
-	for i, row := range records {
-		if i == 0 || len(row) < 4 {
-			continue
-		}
-		var lat, lng float64
-		if _, err := fmt.Sscanf(row[2], "%f", &lat); err != nil {
-			continue
-		}
-		if _, err := fmt.Sscanf(row[3], "%f", &lng); err != nil {
-			continue
-		}
-		airports = append(airports, geo.Airport{
-			IATA: row[0], Name: row[1],
-			Location: geo.Point{Lat: lat, Lng: lng},
-		})
-	}
-	return airports, nil
-}
-
-func loadRouteGraph() (routes.RouteGraph, error) {
-	f, err := os.Open(dataPath("data/routes.csv"))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-
-	graph := make(routes.RouteGraph)
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSuffix(scanner.Text(), "\r")
-		parts := strings.SplitN(line, ",", 2)
-		if len(parts) < 2 {
-			continue
-		}
-		from, to := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-		if from == "" || to == "" {
-			continue
-		}
-		if graph[from] == nil {
-			graph[from] = make(map[string]struct{})
-		}
-		graph[from][to] = struct{}{}
-	}
-	return graph, scanner.Err()
+	return fallback
 }
