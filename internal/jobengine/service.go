@@ -44,6 +44,42 @@ var DefaultHubs = []string{
 	"MUC", // Munich
 	"ZRH", // Zurich
 	"BCN", // Barcelona
+
+	// North America
+	"YYZ", // Toronto Pearson
+	"YVR", // Vancouver
+	"MEX", // Mexico City
+	"DFW", // Dallas Fort Worth
+	"ORD", // Chicago O'Hare
+	"ATL", // Hartsfield-Jackson Atlanta
+	"JFK", // John F. Kennedy
+	"LAX", // Los Angeles
+	"SFO", // San Francisco
+
+	// Latin America
+	"GRU", // São Paulo
+	"EZE", // Buenos Aires
+
+	// Middle East
+	"DXB", // Dubai
+	"DOH", // Doha
+
+	// Asia
+	"PEK", // Beijing
+	"PVG", // Shanghai Pudong
+	"HND", // Tokyo Haneda
+	"NRT", // Tokyo Narita
+	"ICN", // Seoul Incheon
+	"BKK", // Bangkok
+	"DEL", // Delhi
+	"BOM", // Mumbai
+
+	// Europe (additional)
+	"BRU", // Brussels
+	"MIL", // Milan
+
+	// Africa
+	"CAI", // Cairo
 }
 
 func NewService(repo Repository, airports AirportSource, enqueuer Enqueuer) *Service {
