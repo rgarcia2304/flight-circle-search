@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	defaultAddr     = ":8080"
-	defaultQueueName = "search"
+	defaultAddr        = ":8080"
+	defaultQueueName   = "search"
 	defaultMaxAttempts = 5
 )
 
@@ -67,9 +67,10 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	handler := corsMiddleware(mux)
 	server := &http.Server{
 		Addr:              *addr,
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -108,16 +109,16 @@ type submitResponse struct {
 }
 
 type jobResponse struct {
-	ID             string             `json:"id"`
-	Status         string             `json:"status"`
-	SubmittedAt    time.Time          `json:"submitted_at"`
-	CompletedAt    *time.Time         `json:"completed_at,omitempty"`
-	TotalPairs     int                `json:"total_pairs"`
-	CompletedPairs int                `json:"completed_pairs"`
-	FailedPairs    int                `json:"failed_pairs"`
-	ErrorSummary   *string            `json:"error_summary,omitempty"`
-	Request        submitRequest      `json:"request"`
-	Results        []resultResponse   `json:"results,omitempty"`
+	ID             string           `json:"id"`
+	Status         string           `json:"status"`
+	SubmittedAt    time.Time        `json:"submitted_at"`
+	CompletedAt    *time.Time       `json:"completed_at,omitempty"`
+	TotalPairs     int              `json:"total_pairs"`
+	CompletedPairs int              `json:"completed_pairs"`
+	FailedPairs    int              `json:"failed_pairs"`
+	ErrorSummary   *string          `json:"error_summary,omitempty"`
+	Request        submitRequest    `json:"request"`
+	Results        []resultResponse `json:"results,omitempty"`
 }
 
 type resultResponse struct {
@@ -245,6 +246,19 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // riverEnqueuer adapts the River client to jobengine.Enqueuer.
 type riverEnqueuer struct {
 	client *river.Client[pgx.Tx]
@@ -275,19 +289,23 @@ func (r *riverEnqueuer) EnqueueBatch(ctx context.Context, results []jobengine.Se
 }
 
 func mustRiverClient(ctx context.Context, pool *pgxpool.Pool) *river.Client[pgx.Tx] {
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &idleWorker{})
+
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues: map[string]river.QueueConfig{
-			defaultQueueName: {MaxWorkers: 1},
-		},
+		Queues:  map[string]river.QueueConfig{defaultQueueName: {MaxWorkers: 1}},
+		Workers: workers,
+		Schema:  "public",
 	})
 	if err != nil {
 		log.Fatalf("create river client: %v", err)
 	}
-	// Start is needed even for insert-only clients? River docs say no — start is for fetch loops.
-	// However InsertMany needs the client to be running to actually push jobs.
-	// Use a background start; the api process doesn't fetch jobs.
-	if err := c.Start(ctx); err != nil {
-		log.Fatalf("start river client: %v", err)
-	}
+	// Insert-only client: Start not needed; InsertMany queues jobs without a fetch loop.
 	return c
 }
+
+type idleWorker struct {
+	river.WorkerDefaults[worker.SearchJobArgs]
+}
+
+func (w *idleWorker) Work(_ context.Context, _ *river.Job[worker.SearchJobArgs]) error { return nil }

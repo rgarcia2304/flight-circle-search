@@ -99,8 +99,8 @@ func TestLive_E2E(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	jobID, totalPairs, err := postSubmit(ctx, server.URL+"/jobs", liveSubmitRequest{
-		OriginLat:  40.6398, OriginLng: -73.7789, OriginR: 200,
-		DestLat:    52.5597, DestLng:   13.2877,  DestR:    500,
+		OriginLat: 40.6398, OriginLng: -73.7789, OriginR: 200,
+		DestLat: 52.5597, DestLng: 13.2877, DestR: 500,
 		DepartFrom: "2026-10-15", DepartTo: "2026-10-15",
 	})
 	if err != nil {
@@ -186,7 +186,7 @@ func mustNewRiverClient(ctx context.Context, pool *pgxpool.Pool) *river.Client[p
 	river.AddWorker(workers, &idleWorker{})
 
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues: map[string]river.QueueConfig{"submit_only": {MaxWorkers: 1}},
+		Queues:  map[string]river.QueueConfig{"submit_only": {MaxWorkers: 1}},
 		Workers: workers,
 		Schema:  "public",
 	})
@@ -197,18 +197,12 @@ func mustNewRiverClient(ctx context.Context, pool *pgxpool.Pool) *river.Client[p
 	return c
 }
 
-type idleWorker struct {
-	river.WorkerDefaults[worker.SearchJobArgs]
-}
-
-func (w *idleWorker) Work(_ context.Context, _ *river.Job[worker.SearchJobArgs]) error { return nil }
-
 func mustNewWorkerClient(ctx context.Context, pool *pgxpool.Pool, w *worker.FareWorker) *river.Client[pgx.Tx] {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, w)
 
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues: map[string]river.QueueConfig{"search": {MaxWorkers: 20}},
+		Queues:  map[string]river.QueueConfig{"search": {MaxWorkers: 20}},
 		Workers: workers,
 	})
 	if err != nil {
