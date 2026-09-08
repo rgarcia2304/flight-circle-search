@@ -20,13 +20,12 @@ var migrationsFS embed.FS
 //go:embed river_migrations/*.sql
 var riverMigrationsFS embed.FS
 
-
 // Config holds Postgres connection settings.
 type Config struct {
-	URL             string
-	MaxConns        int32
-	ConnectTimeout  time.Duration
-	MigrationPath   string
+	URL            string
+	MaxConns       int32
+	ConnectTimeout time.Duration
+	MigrationPath  string
 }
 
 // NewPool creates a configured pgxpool.
@@ -65,6 +64,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version TEXT PRIMARY KEY,
+			dirty BOOLEAN NOT NULL DEFAULT false,
 			applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)
 	`); err != nil {
@@ -112,11 +112,11 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("apply %s: %w", name, err)
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO schema_migrations(version) VALUES ($1)`,
+			`INSERT INTO schema_migrations(version, dirty) VALUES ($1, false)`,
 			version,
 		); err != nil {
 			_ = tx.Rollback(ctx)
-			return fmt.Errorf("record %s: %w", name, err)
+			return fmt.Errorf("record %s: %w", version, err)
 		}
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("commit %s: %w", name, err)
@@ -172,11 +172,11 @@ func RunRiverMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("apply river %s: %w", name, err)
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO schema_migrations(version) VALUES ($1)`,
+			`INSERT INTO schema_migrations(version, dirty) VALUES ($1, false)`,
 			version,
 		); err != nil {
 			_ = tx.Rollback(ctx)
-			return fmt.Errorf("record river %s: %w", name, err)
+			return fmt.Errorf("record river %s: %w", version, err)
 		}
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("commit river %s: %w", name, err)

@@ -18,45 +18,10 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
-const (
-	defaultQueueName     = "search"
-	defaultRPS          = 8.0
-	defaultMaxConcurrent = 10
-)
-
 func main() {
 	dbURL := flag.String("db-url", envOr("DATABASE_URL", "postgres://dev:dev@localhost:5432/flightsearch"),
 		"Postgres connection string")
-	provider := flag.String("provider", envOr("FARE_PROVIDER", "travelpayouts"),
-		"fare provider: 'travelpayouts' or 'duffel'")
-	duffelToken := flag.String("duffel-token", envOr("DUFFEL_API_TOKEN", ""),
-		"Duffel API token (or set DUFFEL_API_TOKEN env var)")
-	tpToken := flag.String("tp-token", envOr("TRAVELPAYOUTS_API_KEY", ""),
-		"Travelpayouts API token (or set TRAVELPAYOUTS_API_KEY env var)")
-	rps := flag.Float64("rps", defaultRPS, "max requests per second to provider API per worker")
-	maxConcurrent := flag.Int("max-concurrent", defaultMaxConcurrent, "max concurrent in-flight API calls per worker")
-	queueWorkers := flag.Int("queue-workers", 1, "number of concurrent River queue workers per instance")
 	flag.Parse()
-
-	if *dbURL == "" {
-		log.Fatal("-db-url or DATABASE_URL is required")
-	}
-
-	var fp fareprovider.FareProvider
-	switch *provider {
-	case "duffel":
-		if *duffelToken == "" {
-			log.Fatal("DUFFEL_API_TOKEN is required for --provider=duffel")
-		}
-		fp = fareprovider.NewDuffel(*duffelToken, "", nil)
-	case "travelpayouts":
-		if *tpToken == "" {
-			log.Fatal("TRAVELPAYOUTS_API_KEY is required for --provider=travelpayouts")
-		}
-		fp = fareprovider.NewTravelpayouts(*tpToken, "", nil)
-	default:
-		log.Fatalf("unknown provider %q (want 'duffel' or 'travelpayouts')", *provider)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -72,43 +37,38 @@ func main() {
 	}
 
 	repo := jobengine.NewPostgresRepository(pool)
-	rateLimiter := worker.NewRateLimiter(*rps, *maxConcurrent)
-	fareWorker := worker.NewFareWorker(repo, fp, rateLimiter)
+	fp := newFareProvider()
+	rl := worker.NewRateLimiter(2, 4) // 2 RPS, max 4 in-flight — be gentle to avoid provider rate-limit
 
-	riverWorkers := river.NewWorkers()
-	river.AddWorker(riverWorkers, fareWorker)
+	fw := worker.NewFareWorker(repo, fp, rl)
 
-	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues: map[string]river.QueueConfig{
-			defaultQueueName: {
-				MaxWorkers: *queueWorkers,
-			},
-		},
-		Workers: riverWorkers,
+	workers := river.NewWorkers()
+	river.AddWorker(workers, fw)
+
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Queues:  map[string]river.QueueConfig{"search": {MaxWorkers: 4}},
+		Workers: workers,
+		Schema:  "public",
 	})
 	if err != nil {
 		log.Fatalf("create river client: %v", err)
 	}
 
-	if err := riverClient.Start(ctx); err != nil {
+	if err := client.Start(ctx); err != nil {
 		log.Fatalf("start river client: %v", err)
 	}
 
-	log.Printf("worker started: provider=%s rps=%.1f max_concurrent=%d queue_workers=%d",
-		*provider, *rps, *maxConcurrent, *queueWorkers)
+	log.Println("worker started — listening on queue 'search'")
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-	log.Println("shutting down...")
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	log.Println("shutting down worker…")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
-
-	if err := riverClient.Stop(shutdownCtx); err != nil {
-		log.Printf("river shutdown error: %v", err)
+	if err := client.Stop(shutdownCtx); err != nil {
+		log.Fatalf("stop river client: %v", err)
 	}
-	log.Println("worker stopped")
 }
 
 func envOr(key, fallback string) string {
@@ -116,4 +76,12 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func newFareProvider() fareprovider.FareProvider {
+	if key := os.Getenv("TRAVELPAYOUTS_API_KEY"); key != "" {
+		return fareprovider.NewTravelpayouts(key, "", nil)
+	}
+	log.Println("warning: TRAVELPAYOUTS_API_KEY not set; worker will fail on all fare searches")
+	return fareprovider.NewTravelpayouts("", "", nil)
 }
