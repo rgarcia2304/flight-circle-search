@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Debug: UI elements', () => {
   test('should render the brand', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Circles')).toBeVisible();
+    await expect(page.getByText('Circle Search')).toBeVisible();
   });
 
   test('should render the depart input', async ({ page }) => {
