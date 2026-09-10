@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"bufio"
@@ -27,7 +27,7 @@ func newCSVAirportSource() *csvAirportSource {
 	}
 	// Fallback: derive repo root from location of this source file.
 	_, thisFile, _, _ := runtime.Caller(0)
-	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile))) // up from cmd/api
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile))) // up from internal/api
 	return &csvAirportSource{baseDir: repoRoot}
 }
 
