@@ -1,7 +1,6 @@
 package config
 
 import (
-    "os"
     "testing"
     "github.com/stretchr/testify/assert"
 )
@@ -12,16 +11,13 @@ var configEnvVars = []string{
     "RESEND_API_KEY", "TRAVELPAYOUTS_API_KEY",
 }
 
-// clearConfigEnv removes any of the config env vars from the real
-// environment (e.g. TRAVELPAYOUTS_API_KEY set in a dev's shell profile)
-// so tests observe Load()'s defaults, and restores the originals after.
+// clearConfigEnv clears the config env vars for the duration of the test
+// (e.g. TRAVELPAYOUTS_API_KEY set in a dev's shell profile) so tests observe
+// Load()'s defaults. t.Setenv restores the original value automatically.
 func clearConfigEnv(t *testing.T) {
     t.Helper()
     for _, key := range configEnvVars {
-        if v, ok := os.LookupEnv(key); ok {
-            os.Unsetenv(key)
-            t.Cleanup(func() { os.Setenv(key, v) })
-        }
+        t.Setenv(key, "")
     }
 }
 
@@ -45,16 +41,16 @@ func TestLoad_Defaults(t *testing.T) {
 
 func TestLoad_WithEnv(t *testing.T) {
     clearConfigEnv(t)
-    os.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
-    os.Setenv("SESSION_SIGNING_KEY", "secret")
-    os.Setenv("REDIS_URL", "redis://redis:6379")
-    os.Setenv("API_ADDR", ":9090")
-    os.Setenv("APP_ORIGIN", "http://example.com")
-    os.Setenv("HUBS", "LHR, FRA, AMS")
-    os.Setenv("CACHE_TTL_HOURS", "48")
-    os.Setenv("RATE_LIMIT_PER_DAY", "100")
-    os.Setenv("RESEND_API_KEY", "key123")
-    os.Setenv("TRAVELPAYOUTS_API_KEY", "tp123")
+    t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
+    t.Setenv("SESSION_SIGNING_KEY", "secret")
+    t.Setenv("REDIS_URL", "redis://redis:6379")
+    t.Setenv("API_ADDR", ":9090")
+    t.Setenv("APP_ORIGIN", "http://example.com")
+    t.Setenv("HUBS", "LHR, FRA, AMS")
+    t.Setenv("CACHE_TTL_HOURS", "48")
+    t.Setenv("RATE_LIMIT_PER_DAY", "100")
+    t.Setenv("RESEND_API_KEY", "key123")
+    t.Setenv("TRAVELPAYOUTS_API_KEY", "tp123")
 
     cfg, err := Load()
     if assert.NoError(t, err) {
