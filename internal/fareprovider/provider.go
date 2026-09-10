@@ -25,6 +25,9 @@ type Fare struct {
 	Duration           time.Duration
 	Transfers          int
 	Link               string
+	// Cached is true when this fare was served from the Redis fare cache
+	// rather than fetched fresh from the provider.
+	Cached bool
 }
 
 type FareProvider interface {

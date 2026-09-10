@@ -71,6 +71,9 @@ func TestSearch_CacheHit_AvoidsNetworkCall(t *testing.T) {
 	if got := atomic.LoadInt32(&hits); got != 1 {
 		t.Fatalf("after 1st Search: server hits = %d, want 1", got)
 	}
+	if first[0].Cached {
+		t.Error("first Search (fresh fetch) Cached = true, want false")
+	}
 
 	second, err := client.Search(context.Background(), req)
 	if err != nil {
@@ -81,6 +84,9 @@ func TestSearch_CacheHit_AvoidsNetworkCall(t *testing.T) {
 	}
 	if len(second) != len(first) {
 		t.Errorf("2nd Search returned %d fares, want %d", len(second), len(first))
+	}
+	if len(second) > 0 && !second[0].Cached {
+		t.Error("second Search (cache hit) Cached = false, want true")
 	}
 }
 

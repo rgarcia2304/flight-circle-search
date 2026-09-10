@@ -63,7 +63,14 @@ func (t *Travelpayouts) Search(ctx context.Context, req SearchRequest) ([]Fare, 
 	key := cache.FareKey(req.Origin, req.Destination, req.Date)
 	if t.cache != nil {
 		if val, err := t.cache.Get(ctx, key); err == nil {
-			return decodeFares(val)
+			fares, err := decodeFares(val)
+			if err != nil {
+				return nil, err
+			}
+			for i := range fares {
+				fares[i].Cached = true
+			}
+			return fares, nil
 		}
 	}
 
