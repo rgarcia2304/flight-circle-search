@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: go.mod
       - name: Build
         run: go build ./...
       - name: Vet
@@ -23,3 +23,29 @@ jobs:
       - name: Test (race detector on)
         run: go test -race ./...
 
+  frontend-build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: E2E (CI-safe specs only)
+        # tests/debug/integration.spec.ts and tests/e2e/live-*.spec.ts need a
+        # real backend + live API keys that CI doesn't have. --grep-invert
+        # excludes integration.spec.ts's one test by title; the live-*
+        # specs are excluded simply by not being in the path list below.
+        run: npx playwright test tests/debug tests/e2e/magic-link.spec.ts --grep-invert "with backend"
