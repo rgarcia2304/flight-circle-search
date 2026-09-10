@@ -1,3 +1,5 @@
+import { apiFetch, parseJSON } from './auth';
+
 export interface SearchRequest {
   origin_lat: number;
   origin_lng: number;
@@ -50,27 +52,17 @@ export interface JobResponse {
   results?: Result[];
 }
 
-const API_BASE = 'http://localhost:8080';
-
 export async function submitJob(req: SearchRequest): Promise<SubmitResponse> {
-  const res = await fetch(`${API_BASE}/jobs`, {
+  const res = await apiFetch('/jobs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'request failed' }));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  return res.json();
+  return parseJSON<SubmitResponse>(res);
 }
 
 export async function getJob(id: string, includeResults = true): Promise<JobResponse> {
   const qs = includeResults ? '?include=results' : '';
-  const res = await fetch(`${API_BASE}/jobs/${id}${qs}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: 'request failed' }));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-  return res.json();
+  const res = await apiFetch(`/jobs/${id}${qs}`);
+  return parseJSON<JobResponse>(res);
 }

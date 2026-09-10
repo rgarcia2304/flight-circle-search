@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { MapView, type CircleData } from './components/MapView';
+import { MagicLinkModal } from './components/MagicLinkModal';
 import { submitJob, getJob, type Result } from './lib/api';
+import { getSession, logout, onUnauthorized, type Session } from './lib/auth';
 import './App.css';
 
 type Step = 'origin' | 'dest' | 'ready';
@@ -29,8 +31,28 @@ function App() {
   const [jobProgress, setJobProgress] = useState<{ completed: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const historyRef = useRef<HistoryEntry[]>([]);
   const lastCommittedRef = useRef<{ type: 'origin' | 'dest' } | null>(null);
+
+  const refreshSession = useCallback(() => {
+    getSession().then(setSession).catch(() => setSession(null));
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
+
+  useEffect(() => onUnauthorized(() => setShowAuthModal(true)), []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      setSession(null);
+    }
+  }, []);
 
   const activeStep: Step = useMemo(() => {
     if (!origin) return 'origin';
@@ -252,6 +274,15 @@ function App() {
           </button>
         )}
 
+        {session && (
+          <div className="account-pill">
+            <span className="account-email">{session.email}</span>
+            <button type="button" onClick={handleLogout} className="account-logout">
+              Sign out
+            </button>
+          </div>
+        )}
+
         <div className="search-panel">
           <div className="date-field">
             <label className="date-label" htmlFor="depart-date">Depart</label>
@@ -285,6 +316,14 @@ function App() {
           </button>
         </div>
       </header>
+
+      <MagicLinkModal
+        open={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          refreshSession();
+        }}
+      />
 
       {error && <div className="toast">{error}</div>}
 
@@ -475,6 +514,44 @@ function App() {
           background: rgba(40, 40, 60, 0.9);
           color: white;
           border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .account-pill {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(20, 20, 30, 0.75);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.08);
+          padding: 8px 8px 8px 14px;
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          animation: hint-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .account-email {
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.8);
+          max-width: 160px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .account-logout {
+          background: rgba(255,255,255,0.06);
+          border: none;
+          color: rgba(255,255,255,0.7);
+          padding: 6px 10px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .account-logout:hover {
+          background: rgba(239, 68, 68, 0.15);
+          color: #fca5a5;
         }
 
         .search-panel {

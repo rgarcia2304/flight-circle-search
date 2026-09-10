@@ -199,3 +199,75 @@ func TestNewAuthHandlers_SecureCookieForHTTPSOrigin(t *testing.T) {
 		t.Error("cookieSecure = false, want true for https:// appOrigin")
 	}
 }
+
+func TestAuthHandlers_Session_ReturnsEmailForValidSession(t *testing.T) {
+	h, _ := newTestAuthHandlers(t)
+	ctx := context.Background()
+
+	sessionID, err := h.sessions.Create(ctx, "user@example.com")
+	if err != nil {
+		t.Fatalf("Create session: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/auth/session", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+	rec := httptest.NewRecorder()
+	RequireAuth(h.sessions)(http.HandlerFunc(h.Session)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var resp callbackResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Email != "user@example.com" {
+		t.Errorf("email = %q, want %q", resp.Email, "user@example.com")
+	}
+}
+
+func TestAuthHandlers_Session_Returns401WithoutCookie(t *testing.T) {
+	h, _ := newTestAuthHandlers(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/auth/session", nil)
+	rec := httptest.NewRecorder()
+	RequireAuth(h.sessions)(http.HandlerFunc(h.Session)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSetSessionCookie_SameSiteLaxForHTTPOrigin(t *testing.T) {
+	h := NewAuthHandlers(nil, nil, nil, "http://localhost:5173")
+	rec := httptest.NewRecorder()
+	h.setSessionCookie(rec, "sid", 3600)
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(cookies))
+	}
+	if cookies[0].SameSite != http.SameSiteLaxMode {
+		t.Errorf("SameSite = %v, want Lax", cookies[0].SameSite)
+	}
+	if cookies[0].Secure {
+		t.Error("Secure = true, want false for http:// origin")
+	}
+}
+
+func TestSetSessionCookie_SameSiteNoneForHTTPSOrigin(t *testing.T) {
+	h := NewAuthHandlers(nil, nil, nil, "https://app.example.com")
+	rec := httptest.NewRecorder()
+	h.setSessionCookie(rec, "sid", 3600)
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(cookies))
+	}
+	if cookies[0].SameSite != http.SameSiteNoneMode {
+		t.Errorf("SameSite = %v, want None", cookies[0].SameSite)
+	}
+	if !cookies[0].Secure {
+		t.Error("Secure = false, want true for https:// origin")
+	}
+}
