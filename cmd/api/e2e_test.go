@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
 	"sync"
@@ -16,6 +17,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"github.com/rgarcia2304/flight-circle-search/internal/api"
+	"github.com/rgarcia2304/flight-circle-search/internal/auth"
+	"github.com/rgarcia2304/flight-circle-search/internal/config"
 	"github.com/rgarcia2304/flight-circle-search/internal/db"
 	"github.com/rgarcia2304/flight-circle-search/internal/fareprovider"
 	"github.com/rgarcia2304/flight-circle-search/internal/jobengine"
@@ -34,7 +39,8 @@ func TestLive_E2E(t *testing.T) {
 	}
 	token := tpToken
 
-	// Requires docker-compose up -d postgres first.
+	// Requires docker-compose up -d first (postgres + redis — the API server
+	// now needs Redis for auth token/session storage).
 	pool, err := pgxpool.New(context.Background(),
 		"postgres://dev:dev@localhost:5432/flightsearch_test?sslmode=disable")
 	if err != nil {
@@ -67,17 +73,29 @@ func TestLive_E2E(t *testing.T) {
 		fp = fareprovider.NewTravelpayouts(token, "", nil)
 	}
 
-	enqueuer := &riverEnqueuer{client: mustNewRiverClient(ctx, pool)}
-	svc := jobengine.NewService(repo, newCSVAirportSource(), enqueuer)
+	cfg := config.Config{
+		DatabaseURL:     "postgres://dev:dev@localhost:5432/flightsearch_test?sslmode=disable",
+		RedisURL:        "redis://localhost:6379",
+		AppOrigin:       "http://localhost:5173",
+		RateLimitPerDay: 1000,
+		CacheTTLHours:   24,
+	}
+	srv, err := api.NewServer(cfg)
+	if err != nil {
+		t.Skipf("build API server (is docker-compose up -d run, including redis?): %v", err)
+	}
+	defer func() { _ = srv.Close() }()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /jobs", makeSubmitHandler(svc))
-	mux.HandleFunc("GET /jobs/{id}", makeGetHandler(repo))
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	server := httptest.NewServer(mux)
+	server := httptest.NewServer(srv.Handler())
 	defer server.Close()
+
+	// /jobs now requires a session, so complete the real magic-link flow:
+	// issue a token directly against the redis the server uses, then
+	// exchange it through the real HTTP callback endpoint to get a cookie.
+	client, err := authenticatedClient(ctx, cfg, server.URL)
+	if err != nil {
+		t.Fatalf("authenticate: %v", err)
+	}
 
 	fareWorker := worker.NewFareWorker(repo, fp, worker.NewRateLimiter(20, 20))
 	workerClient := mustNewWorkerClient(ctx, pool, fareWorker)
@@ -98,7 +116,7 @@ func TestLive_E2E(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	jobID, totalPairs, err := postSubmit(ctx, server.URL+"/jobs", liveSubmitRequest{
+	jobID, totalPairs, err := postSubmit(ctx, client, server.URL+"/jobs", liveSubmitRequest{
 		OriginLat: 40.6398, OriginLng: -73.7789, OriginR: 200,
 		DestLat: 52.5597, DestLng: 13.2877, DestR: 500,
 		DepartFrom: "2026-10-15", DepartTo: "2026-10-15",
@@ -112,7 +130,7 @@ func TestLive_E2E(t *testing.T) {
 		t.Fatal("expected at least 1 pair, got 0")
 	}
 
-	job := pollUntilDone(ctx, t, server.URL+"/jobs/"+jobID+"?include=results")
+	job := pollUntilDone(ctx, t, client, server.URL+"/jobs/"+jobID+"?include=results")
 	t.Logf("Job %s: status=%s completed=%d failed=%d/%d",
 		jobID, job.Status, job.CompletedPairs, job.FailedPairs, job.TotalPairs)
 
@@ -179,22 +197,43 @@ func logFareDetails(t *testing.T, origin, dest string, raw json.RawMessage) {
 	t.Logf("      link: %s", best.Link)
 }
 
-func mustNewRiverClient(ctx context.Context, pool *pgxpool.Pool) *river.Client[pgx.Tx] {
-	// Insert-only client: registers a worker for a queue the real worker doesn't use,
-	// and the real worker uses "search". This client only inserts, never fetches.
-	workers := river.NewWorkers()
-	river.AddWorker(workers, &idleWorker{})
-
-	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues:  map[string]river.QueueConfig{"submit_only": {MaxWorkers: 1}},
-		Workers: workers,
-		Schema:  "public",
-	})
+// authenticatedClient completes the magic-link flow against the running
+// server and returns an *http.Client that carries the resulting session
+// cookie on subsequent requests.
+func authenticatedClient(ctx context.Context, cfg config.Config, baseURL string) (*http.Client, error) {
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
-		log.Fatalf("create river client: %v", err)
+		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
-	// Intentionally NOT calling c.Start() — this client only inserts, never fetches.
-	return c
+	redisClient := redis.NewClient(redisOpts)
+	defer func() { _ = redisClient.Close() }()
+
+	tokenStore := auth.NewTokenStore(redisClient, cfg.RateLimitPerDay)
+	token, err := tokenStore.Issue(ctx, "e2e-test@example.com")
+	if err != nil {
+		return nil, fmt.Errorf("issue magic-link token: %w", err)
+	}
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("new cookie jar: %w", err)
+	}
+	client := &http.Client{Jar: jar}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/auth/callback?token="+token, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new callback request: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("callback request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("callback status %d: %s", resp.StatusCode, body)
+	}
+	return client, nil
 }
 
 func mustNewWorkerClient(ctx context.Context, pool *pgxpool.Pool, w *worker.FareWorker) *river.Client[pgx.Tx] {
@@ -241,11 +280,11 @@ type liveResult struct {
 	Error         *string         `json:"error,omitempty"`
 }
 
-func postSubmit(ctx context.Context, url string, req liveSubmitRequest) (string, int, error) {
+func postSubmit(ctx context.Context, client *http.Client, url string, req liveSubmitRequest) (string, int, error) {
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", 0, fmt.Errorf("post: %w", err)
 	}
@@ -264,7 +303,7 @@ func postSubmit(ctx context.Context, url string, req liveSubmitRequest) (string,
 	return r.JobID, r.TotalPairs, nil
 }
 
-func pollUntilDone(ctx context.Context, t *testing.T, url string) *liveJobStatus {
+func pollUntilDone(ctx context.Context, t *testing.T, client *http.Client, url string) *liveJobStatus {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	timeout := time.After(5 * time.Minute)
@@ -276,7 +315,7 @@ func pollUntilDone(ctx context.Context, t *testing.T, url string) *liveJobStatus
 		case <-timeout:
 			var job liveJobStatus
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-			resp, _ := http.DefaultClient.Do(req)
+			resp, _ := client.Do(req)
 			if resp != nil {
 				data, _ := io.ReadAll(resp.Body)
 				_ = resp.Body.Close()
@@ -286,7 +325,7 @@ func pollUntilDone(ctx context.Context, t *testing.T, url string) *liveJobStatus
 				job.Status, job.CompletedPairs, job.TotalPairs, job.FailedPairs)
 		case <-ticker.C:
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := client.Do(req)
 			if err != nil {
 				t.Logf("poll: %v", err)
 				continue
