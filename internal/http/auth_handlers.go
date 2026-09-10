@@ -16,24 +16,46 @@ const sessionCookieName = "session"
 
 // AuthHandlers implements the magic-link auth HTTP endpoints.
 type AuthHandlers struct {
-	tokens       *auth.TokenStore
-	sessions     *auth.SessionStore
-	sender       email.Sender
-	appOrigin    string
-	cookieSecure bool
+	tokens        *auth.TokenStore
+	sessions      *auth.SessionStore
+	sender        email.Sender
+	appOrigin     string
+	cookieSecure  bool
+	allowedEmails map[string]struct{} // nil/empty = no restriction
 }
 
 // NewAuthHandlers creates AuthHandlers. appOrigin is the frontend's origin
 // (e.g. https://app.example.com); the magic link emailed to users points
 // there, and it also determines whether session cookies are marked Secure.
-func NewAuthHandlers(tokens *auth.TokenStore, sessions *auth.SessionStore, sender email.Sender, appOrigin string) *AuthHandlers {
-	return &AuthHandlers{
-		tokens:       tokens,
-		sessions:     sessions,
-		sender:       sender,
-		appOrigin:    appOrigin,
-		cookieSecure: strings.HasPrefix(appOrigin, "https://"),
+// allowedEmails, when non-empty, restricts who can request a magic link at
+// all (case-insensitive) — meant for gating a demo deployment to specific
+// people rather than leaving it open to anyone who finds the URL.
+func NewAuthHandlers(tokens *auth.TokenStore, sessions *auth.SessionStore, sender email.Sender, appOrigin string, allowedEmails []string) *AuthHandlers {
+	var allowed map[string]struct{}
+	if len(allowedEmails) > 0 {
+		allowed = make(map[string]struct{}, len(allowedEmails))
+		for _, e := range allowedEmails {
+			allowed[strings.ToLower(e)] = struct{}{}
+		}
 	}
+	return &AuthHandlers{
+		tokens:        tokens,
+		sessions:      sessions,
+		sender:        sender,
+		appOrigin:     appOrigin,
+		cookieSecure:  strings.HasPrefix(appOrigin, "https://"),
+		allowedEmails: allowed,
+	}
+}
+
+// isAllowed reports whether email may request a magic link. An empty
+// allowlist means no restriction.
+func (h *AuthHandlers) isAllowed(email string) bool {
+	if len(h.allowedEmails) == 0 {
+		return true
+	}
+	_, ok := h.allowedEmails[strings.ToLower(email)]
+	return ok
 }
 
 type magicLinkRequest struct {
@@ -51,6 +73,13 @@ func (h *AuthHandlers) RequestMagicLink(w http.ResponseWriter, r *http.Request) 
 	addr, err := mail.ParseAddress(req.Email)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_email", "email must be a valid address")
+		return
+	}
+
+	if !h.isAllowed(addr.Address) {
+		// Same response as success — don't let the endpoint be used to probe
+		// which addresses are allowlisted.
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "sent"})
 		return
 	}
 

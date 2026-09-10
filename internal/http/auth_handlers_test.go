@@ -38,6 +38,11 @@ func (f *fakeSender) linkFor(to string) string {
 
 func newTestAuthHandlers(t *testing.T) (*AuthHandlers, *fakeSender) {
 	t.Helper()
+	return newTestAuthHandlersWithAllowlist(t, nil)
+}
+
+func newTestAuthHandlersWithAllowlist(t *testing.T, allowedEmails []string) (*AuthHandlers, *fakeSender) {
+	t.Helper()
 	s, err := miniredis.Run()
 	if err != nil {
 		t.Fatalf("miniredis.Run: %v", err)
@@ -51,7 +56,7 @@ func newTestAuthHandlers(t *testing.T) (*AuthHandlers, *fakeSender) {
 	sessions := auth.NewSessionStore(client)
 	sender := newFakeSender()
 
-	return NewAuthHandlers(tokens, sessions, sender, "http://localhost:5173"), sender
+	return NewAuthHandlers(tokens, sessions, sender, "http://localhost:5173", allowedEmails), sender
 }
 
 func TestAuthHandlers_FullFlow_RequestCallbackLogout(t *testing.T) {
@@ -169,6 +174,51 @@ func TestAuthHandlers_RequestMagicLink_RateLimited(t *testing.T) {
 	}
 }
 
+func TestAuthHandlers_RequestMagicLink_AllowlistBlocksUnlistedEmail(t *testing.T) {
+	h, sender := newTestAuthHandlersWithAllowlist(t, []string{"allowed@example.com"})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/magic-link", strings.NewReader(`{"email":"stranger@example.com"}`))
+	rec := httptest.NewRecorder()
+	h.RequestMagicLink(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Errorf("status = %d, want %d (must look identical to success)", rec.Code, http.StatusAccepted)
+	}
+	if link := sender.linkFor("stranger@example.com"); link != "" {
+		t.Errorf("expected no magic link to be sent to a non-allowlisted email, got %q", link)
+	}
+}
+
+func TestAuthHandlers_RequestMagicLink_AllowlistAllowsListedEmail(t *testing.T) {
+	h, sender := newTestAuthHandlersWithAllowlist(t, []string{"Allowed@Example.com"})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/magic-link", strings.NewReader(`{"email":"allowed@example.com"}`))
+	rec := httptest.NewRecorder()
+	h.RequestMagicLink(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
+	}
+	if link := sender.linkFor("allowed@example.com"); link == "" {
+		t.Error("expected a magic link to be sent to an allowlisted email (case-insensitive match)")
+	}
+}
+
+func TestAuthHandlers_RequestMagicLink_EmptyAllowlistAllowsAnyEmail(t *testing.T) {
+	h, sender := newTestAuthHandlers(t) // nil allowlist
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/magic-link", strings.NewReader(`{"email":"anyone@example.com"}`))
+	rec := httptest.NewRecorder()
+	h.RequestMagicLink(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusAccepted)
+	}
+	if link := sender.linkFor("anyone@example.com"); link == "" {
+		t.Error("expected an empty allowlist to allow any email")
+	}
+}
+
 func TestAuthHandlers_Callback_UnknownToken(t *testing.T) {
 	h, _ := newTestAuthHandlers(t)
 
@@ -194,7 +244,7 @@ func TestAuthHandlers_Callback_MissingToken(t *testing.T) {
 }
 
 func TestNewAuthHandlers_SecureCookieForHTTPSOrigin(t *testing.T) {
-	h := NewAuthHandlers(nil, nil, nil, "https://app.example.com")
+	h := NewAuthHandlers(nil, nil, nil, "https://app.example.com", nil)
 	if !h.cookieSecure {
 		t.Error("cookieSecure = false, want true for https:// appOrigin")
 	}
@@ -239,7 +289,7 @@ func TestAuthHandlers_Session_Returns401WithoutCookie(t *testing.T) {
 }
 
 func TestSetSessionCookie_SameSiteLaxForHTTPOrigin(t *testing.T) {
-	h := NewAuthHandlers(nil, nil, nil, "http://localhost:5173")
+	h := NewAuthHandlers(nil, nil, nil, "http://localhost:5173", nil)
 	rec := httptest.NewRecorder()
 	h.setSessionCookie(rec, "sid", 3600)
 
@@ -256,7 +306,7 @@ func TestSetSessionCookie_SameSiteLaxForHTTPOrigin(t *testing.T) {
 }
 
 func TestSetSessionCookie_SameSiteNoneForHTTPSOrigin(t *testing.T) {
-	h := NewAuthHandlers(nil, nil, nil, "https://app.example.com")
+	h := NewAuthHandlers(nil, nil, nil, "https://app.example.com", nil)
 	rec := httptest.NewRecorder()
 	h.setSessionCookie(rec, "sid", 3600)
 

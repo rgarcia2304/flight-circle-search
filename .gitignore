@@ -1,6 +1,6 @@
 .env
 *.env.local
-/data/*.csv
+.firebase/
 bin/
 __pycache__/
 venv/
