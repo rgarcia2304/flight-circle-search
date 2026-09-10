@@ -1,6 +1,7 @@
 .env
 *.env.local
 .firebase/
+MAINTENANCE.md
 bin/
 __pycache__/
 venv/

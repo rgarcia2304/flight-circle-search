@@ -1,45 +1,35 @@
 # Next Steps — Get this to a demo-ready v1
 
 ## Day 1: World hubs + config
-- [ ] Edit `internal/jobengine/service.go` lines 36-47: replace `DefaultHubs` with 27-hub world list (LHR, FRA, AMS, CDG, IST, DUB, MAD, MUC, ZRH, BCN + YYZ, YVR, MEX, DFW, ORD, ATL, JFK, LAX, SFO, GRU, EZE, DXB, PEK, PVG, HND, NRT, ICN, BKK, DEL, BOM, SYD, MEL, CAI, DOH, BRU, MIL)
-- [ ] Create `internal/config/config.go`: typed Config struct with DATABASE_URL, REDIS_URL, API_ADDR, APP_ORIGIN, HUBS, CACHE_TTL_HOURS, RATE_LIMIT_PER_DAY, RESEND_API_KEY, SESSION_SIGNING_KEY
-- [ ] Run `go test ./internal/config/...` to verify defaults
+- [x] `internal/config/config.go`: typed Config struct — done, and grew beyond the original field list (`ALLOWED_EMAILS`, `PORT`-aware `APIAddr` for Cloud Run, etc.)
+- [x] `go test ./internal/config/...` passes
+- [~] World hub list — `internal/jobengine.DefaultHubs` covers 34 hubs, not the literal 27-city list originally specified (missing e.g. SYD/MEL, has a few not on the original list). Functionally fine, never reconciled — see backlog below.
 
 ## Day 2: Magic-link auth
-- [ ] Create `internal/auth/tokens.go` (32-byte base64url tokens, SHA-256 hash + 15-min Redis TTL)
-- [ ] Create `internal/auth/sessions.go` (Redis `session:{id} -> {email, created_at}`, 30-day TTL)
-- [ ] Create `internal/email/sender.go` (interface + resend.go + stdout fallback)
-- [ ] Create `internal/http/auth_handlers.go` (POST /v1/auth/magic-link, GET /v1/auth/callback, POST /v1/auth/logout)
-- [ ] Create `internal/http/middleware.go` (RequireAuth, request ID, structured access log, security headers, CORS from config)
-- [ ] Add typed errors: ErrRateLimited, ErrNotFound, ErrUnauthorized
-- [ ] Run `go test ./internal/auth/ ./internal/http/ ./internal/email/...` verify
+- [x] `internal/auth/tokens.go`, `internal/auth/sessions.go`, `internal/email/sender.go`, `internal/http/auth_handlers.go`, `internal/http/middleware.go`, typed errors — all done, PR #10
+- [x] `go test ./internal/auth/ ./internal/http/ ./internal/email/...` passes
 
 ## Day 3: HTTP + worker wiring
-- [ ] Create `internal/api/server.go` (NewServer(cfg config.Config) *Server with middleware chain + graceful shutdown)
-- [ ] Rewrite `cmd/api/main.go` to call `api.NewServer(cfg).Listen(ctx)` (remove inline handlers)
-- [ ] Rewrite `cmd/worker/main.go` to use `worker.NewRunner(cfg config.Config) *Runner` (remove inline idleWorker hack)
-- [ ] Run `go build ./...` and `go test -race ./...` verify
+- [x] `internal/api/server.go`, `cmd/api/main.go` rewrite, `cmd/worker/main.go` rewrite via `internal/worker.Runner` — all done, PR #11
+- [x] `go build ./...` and `go test -race ./...` pass
 
 ## Day 4: Frontend auth UI
-- [ ] Create `frontend/src/components/MagicLinkModal.tsx` (email input + send link)
-- [ ] Create `frontend/src/lib/auth.ts` (getSession, logout, requestMagicLink, cookie reading)
-- [ ] Rewrite `frontend/src/lib/api.ts` (replace hardcoded localhost, add credentials: 'include', 401 -> modal pop)
-- [ ] Update `frontend/src/components/ResultsPanel.tsx` (empty/loading/error states + cached badge)
-- [ ] Add `frontend/src/lib/carriers.json` (50-entry IATA→carrier name map)
-- [ ] Run `npm run build && npm run lint` verify
-- [ ] Create `frontend/tests/e2e/magic-link.spec.ts` (mock email send, walk full flow)
+- [x] `MagicLinkModal.tsx`, `lib/auth.ts`, `lib/api.ts` rewrite — done, PR #12
+- [x] `ResultsPanel.tsx`, `carriers.json` — done, PR #13 (split out as its own PR rather than bundled into the auth-UI PR)
+- [x] `npm run build && npm run lint` passes
+- [x] `frontend/tests/e2e/magic-link.spec.ts` — done, fully mocked network (no live backend needed)
 
 ## Day 5: Deploy + docs
-- [ ] GCP setup: Cloud SQL (db-f1-micro) + Memorystore (1GB basic) + Cloud Run (api + worker) + Firebase Hosting
-- [ ] Create Secret Manager entries (TRAVELPAYOUTS_API_KEY, SESSION_SIGNING_KEY, RESEND_API_KEY)
-- [ ] Run `gcloud run deploy api --source . --region us-central1 --allow-unauthenticated`
-- [ ] Run `firebase init` + `firebase deploy --only hosting`
-- [ ] Create billing alert: `gcloud billing budgets create --billing-account=XXXXXX --display-name="flight-circles" --budget-amount=30`
-- [ ] Write `README.md` at repo root (1-paragraph pitch, architecture diagram mermaid, quick start, magic-link flow, deploy steps, trade-offs, what's missing)
-- [ ] Final pass: `make dev` → app loads; `make deploy` → URL reachable
-- [ ] Record 60-second demo walkthrough video
+- [x] GCP setup: Cloud SQL (db-f1-micro), Memorystore (1GB basic), Cloud Run (`flight-api` + `flight-worker`), Firebase Hosting — all live
+- [x] Secret Manager: `database-url`, `session-signing-key`, `travelpayouts-api-key`, `resend-api-key`
+- [x] Deployed via `gcloud run deploy` (now automated through `.github/workflows/deploy.yml`, manual-trigger)
+- [x] `firebase deploy --only hosting` — live at https://circle-search-508212.web.app
+- [x] Billing budget alert — done, but $300 (this repo's actual GCP free-trial credit), not the originally-specified $30
+- [ ] `README.md` — drafted during the session, never finalized/committed. Still open.
+- [~] `make dev` / `make deploy` as originally specified were never built as literal targets. What exists instead: local dev is `docker compose up -d` + `go run ./cmd/api` + `go run ./cmd/worker` + `npm run dev` (no single wrapper), real deploys go through `.github/workflows/deploy.yml` (manual `gh workflow run` / Actions tab), and `make demo-up`/`make demo-down`/`make demo-status` handle toggling Cloud SQL + the worker between demo sessions. The acceptance-criteria block below is stale against this — kept for historical record, not a literal script to run.
+- [ ] Record 60-second demo walkthrough video — still on you.
 
-## Acceptance Criteria (run to verify)
+## Acceptance Criteria (historical — see note above, `make dev`/`make deploy` don't exist as written)
 
 ```bash
 # 1. Config loads
@@ -55,12 +45,30 @@ go test -race ./...  # exits 0
 # 4. Frontend builds + lints
 cd frontend && npm run build && npm run lint  # exits 0
 
-# 5. Smoke test (local dev)
-make dev                    # starts Postgres + Redis + API + worker + Vite
-curl http://localhost:8080/readyz  # returns 200
-# Submit a search → get real fares → click Book → aviasales.com opens
-
-# 5. Deploy
-make deploy                 # succeeds
-curl https://YOUR-SUBDOMAIN/readyz  # returns 200
+# 5. Smoke test (real deploy)
+curl https://flight-api-1048739205149.us-central1.run.app/readyz  # returns 200
+curl https://circle-search-508212.web.app/  # returns 200
 ```
+
+---
+
+## Day 6+: Post-launch backlog
+
+The app is deployed and demo-ready. What's left, prioritized.
+
+### Tier 1 — real gaps, clear scope, worth doing next
+1. **Runtime service-account least-privilege.** `flight-api`/`flight-worker` still run under GCP's default compute service account (broad permissions). Day 5's follow-up CI/CD work only scoped a *deploy-time* identity (`github-deployer`) — never a *runtime* one. Fix: create a dedicated runtime SA with exactly Secret Manager accessor + Cloud SQL client roles, redeploy both services with `--service-account`.
+2. **Fare-data provider decision.** Travelpayouts' free tier returns real but stale/aggregated data, not live GDS pricing. Investigated AeroDataBox (wrong category of API — flight status/schedule, not fares), Duffel (already built in `internal/fareprovider/duffel.go`, but live data needs partner/business account activation, not just an API key), Amadeus Self-Service (free tier shut down July 2026), FlightAPI.io (unverified, small free quota). Needs an actual decision, not more research.
+3. **Data retention for `search_jobs`/`search_job_results`.** No cleanup exists today — grows forever. Needs a scheduled `DELETE ... WHERE submitted_at < now() - interval '30 days'` (Cloud Scheduler → a small endpoint, or just a manual/cron job at current scale).
+4. **Dependabot config** (`.github/dependabot.yml`) for Go modules + npm — nothing currently flags stale/vulnerable dependencies.
+5. **Fix `tests/e2e/live-*.spec.ts`.** Stale since Day 3 — they submit jobs with no login step, and `/jobs` has required auth since Day 3. Not part of CI (manual-only), so this hasn't blocked anything, but they don't pass today.
+
+### Tier 2 — documentation/completion
+6. **Finish `README.md`** — pitch, architecture diagram (mermaid), quick start, magic-link flow, deploy steps, trade-offs, what's missing.
+7. **Demo video.**
+
+### Tier 3 — real, but lower priority for a solo demo project
+8. **Basic alerting** — an uptime check on `/readyz`, a log-based alert on worker dead-letters. Nothing pages anyone today.
+9. **World-hub list reconciliation** — see Day 1 note above. Cosmetic.
+10. **Infra-as-code (Terraform).** Deliberately deferred from Day 5 — the point was learning the GCP primitives by hand. Revisit only if this needs to be reproduced or handed off to someone else.
+11. **Staging environment.** Not worth it at current scale; revisit if this gets real users.
