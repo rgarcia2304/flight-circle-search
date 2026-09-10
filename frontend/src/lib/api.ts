@@ -29,6 +29,7 @@ export interface FareOption {
   Duration: number;
   Transfers: number;
   Link: string;
+  Cached: boolean;
 }
 
 export interface Result {
