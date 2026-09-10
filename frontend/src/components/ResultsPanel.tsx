@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import carriers from '../lib/carriers.json';
 
 export interface ParsedFare {
@@ -74,7 +75,7 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
         </div>
         {phase !== 'searching' && (
           <button className="results-close" onClick={onClose} aria-label="Close results">
-            ×
+            <X size={16} strokeWidth={2.5} />
           </button>
         )}
       </div>
@@ -179,7 +180,9 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          font-size: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
           transition: all 0.2s ease;
         }

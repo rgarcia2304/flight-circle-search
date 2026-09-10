@@ -32,7 +32,6 @@ function createMarkerIcon(color: string, type: 'origin' | 'dest') {
     html: `
       <div class="marker-ring"></div>
       <div class="marker-core" style="background:${color};"></div>
-      <div class="marker-icon">${type === 'origin' ? '✕' : '◎'}</div>
     `,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
@@ -396,16 +395,6 @@ export function MapView({
           border: 3px solid rgba(255,255,255,0.9);
           box-shadow: 0 2px 12px rgba(0,0,0,0.35);
           z-index: 1;
-        }
-        .marker-icon {
-          position: absolute;
-          font-size: 9px;
-          color: white;
-          font-weight: 700;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.25);
-          z-index: 2;
-          line-height: 1;
-          pointer-events: none;
         }
         @keyframes marker-pulse {
           0% { transform: scale(0.75); opacity: 0.25; }
