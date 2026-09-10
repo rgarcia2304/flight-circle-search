@@ -115,7 +115,27 @@ func (h *AuthHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Session handles GET /v1/auth/session. It's wrapped in RequireAuth, so a
+// valid Session is always present in the request context here.
+func (h *AuthHandlers) Session(w http.ResponseWriter, r *http.Request) {
+	sess, ok := SessionFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", ErrUnauthorized.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, callbackResponse{Email: sess.Email})
+}
+
 func (h *AuthHandlers) setSessionCookie(w http.ResponseWriter, value string, maxAge int) {
+	// The frontend and API are cross-site in production (Firebase Hosting +
+	// Cloud Run), so a credentialed fetch needs SameSite=None — which browsers
+	// only honor alongside Secure. Locally (http, same registrable domain,
+	// different port) Lax is what actually works: SameSite=None without
+	// Secure is rejected outright.
+	sameSite := http.SameSiteLaxMode
+	if h.cookieSecure {
+		sameSite = http.SameSiteNoneMode
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieName,
 		Value:    value,
@@ -123,6 +143,6 @@ func (h *AuthHandlers) setSessionCookie(w http.ResponseWriter, value string, max
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   h.cookieSecure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 	})
 }

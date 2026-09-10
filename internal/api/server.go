@@ -86,6 +86,7 @@ func NewServer(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /v1/auth/magic-link", authHandlers.RequestMagicLink)
 	mux.HandleFunc("GET /v1/auth/callback", authHandlers.Callback)
 	mux.HandleFunc("POST /v1/auth/logout", authHandlers.Logout)
+	mux.Handle("GET /v1/auth/session", authhttp.RequireAuth(sessions)(http.HandlerFunc(authHandlers.Session)))
 
 	var handler http.Handler = mux
 	handler = authhttp.CORS(cfg.AppOrigin)(handler)
