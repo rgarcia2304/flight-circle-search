@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Check } from 'lucide-react';
 import { requestMagicLink } from '../lib/auth';
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
@@ -50,8 +51,8 @@ export function MagicLinkModal({ open, onClose }: MagicLinkModalProps) {
       >
         {status === 'sent' ? (
           <div className="text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#0a0a0a]">
-              ✓
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#0a0a0a]">
+              <Check size={20} strokeWidth={3} />
             </div>
             <h2 className="text-base font-bold">Check your email</h2>
             <p className="mt-1.5 text-sm text-white/60">

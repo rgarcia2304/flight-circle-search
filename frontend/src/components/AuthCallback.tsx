@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import { exchangeMagicLinkToken } from '../lib/auth';
 
 type Status = 'exchanging' | 'success' | 'error';
@@ -36,8 +37,8 @@ export function AuthCallback() {
         )}
         {status === 'success' && (
           <>
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#0a0a0a]">
-              ✓
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#0a0a0a]">
+              <Check size={20} strokeWidth={3} />
             </div>
             <h1 className="text-base font-bold">Signed in</h1>
             <p className="mt-1.5 text-sm text-white/60">

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Calendar, Circle, Search } from 'lucide-react';
 import { MapView, type CircleData } from './components/MapView';
 import { MagicLinkModal } from './components/MagicLinkModal';
 import { ResultsPanel, type ParsedFare } from './components/ResultsPanel';
@@ -254,7 +255,7 @@ function App() {
             </svg>
           </div>
           <div className="brand-text">
-            <div className="brand-title">Circles</div>
+            <div className="brand-title">Circle Search</div>
           </div>
         </div>
 
@@ -339,25 +340,25 @@ function App() {
       <div className="hint-bar">
         {!origin && (
           <div className="hint">
-            <span className="hint-icon">✕</span>
+            <span className="hint-icon"><Circle size={12} strokeWidth={3} /></span>
             <span><strong>Click & drag</strong> on the map to set your <strong>origin</strong> · <kbd>Space</kbd> pan</span>
           </div>
         )}
         {origin && !dest && (
           <div className="hint">
-            <span className="hint-icon">◎</span>
+            <span className="hint-icon"><Circle size={12} strokeWidth={3} /></span>
             <span><strong>Click & drag</strong> to set your <strong>destination</strong> · <kbd>Esc</kbd> to undo</span>
           </div>
         )}
         {origin && dest && !departDate && (
           <div className="hint">
-            <span className="hint-icon">📅</span>
+            <span className="hint-icon"><Calendar size={12} strokeWidth={3} /></span>
             <span>Pick a <strong>departure date</strong> · <kbd>Esc</kbd> undo · <kbd>Space</kbd> pan · trackpad: two-finger drag</span>
           </div>
         )}
         {canSearch && (
           <div className="hint hint--ready">
-            <span className="hint-icon">🚀</span>
+            <span className="hint-icon"><Search size={12} strokeWidth={3} /></span>
             <span>Ready — hit Find Flights · <kbd>Esc</kbd> undo · <kbd>R</kbd> reset</span>
           </div>
         )}
