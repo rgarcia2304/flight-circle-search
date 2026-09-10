@@ -1,0 +1,98 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'What to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api
+          - worker
+          - frontend
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  GCP_PROJECT: circle-search-508212
+  GCP_REGION: us-central1
+
+jobs:
+  deploy-api:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy flight-api
+        run: |
+          gcloud run deploy flight-api \
+            --source . \
+            --region="${GCP_REGION}" \
+            --allow-unauthenticated \
+            --add-cloudsql-instances=circle-search-508212:us-central1:main-db \
+            --vpc-connector=redis-connector \
+            --set-build-env-vars=GOOGLE_BUILDABLE=./cmd/api \
+            --set-env-vars="REDIS_URL=redis://10.180.57.171:6379,APP_ORIGIN=https://circle-search-508212.web.app,ALLOWED_EMAILS=rgarcia22141@gmail.com" \
+            --set-secrets="DATABASE_URL=database-url:latest,SESSION_SIGNING_KEY=session-signing-key:latest,TRAVELPAYOUTS_API_KEY=travelpayouts-api-key:latest,RESEND_API_KEY=resend-api-key:latest" \
+            --quiet
+
+  deploy-worker:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'worker' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy flight-worker
+        run: |
+          gcloud run deploy flight-worker \
+            --source . \
+            --region="${GCP_REGION}" \
+            --no-allow-unauthenticated \
+            --add-cloudsql-instances=circle-search-508212:us-central1:main-db \
+            --vpc-connector=redis-connector \
+            --set-build-env-vars=GOOGLE_BUILDABLE=./cmd/worker \
+            --set-env-vars="REDIS_URL=redis://10.180.57.171:6379" \
+            --set-secrets="DATABASE_URL=database-url:latest,SESSION_SIGNING_KEY=session-signing-key:latest,TRAVELPAYOUTS_API_KEY=travelpayouts-api-key:latest" \
+            --min-instances=1 --max-instances=1 \
+            --no-cpu-throttling \
+            --quiet
+
+  deploy-frontend:
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'frontend' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+      - name: Deploy to Firebase Hosting
+        run: npx --yes firebase-tools@latest deploy --only hosting --project "${GCP_PROJECT}" --non-interactive
