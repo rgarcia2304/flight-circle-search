@@ -39,6 +39,7 @@ jobs:
             --source . \
             --region="${GCP_REGION}" \
             --allow-unauthenticated \
+            --service-account=flight-runtime@circle-search-508212.iam.gserviceaccount.com \
             --add-cloudsql-instances=circle-search-508212:us-central1:main-db \
             --vpc-connector=redis-connector \
             --set-build-env-vars=GOOGLE_BUILDABLE=./cmd/api \
@@ -62,6 +63,7 @@ jobs:
             --source . \
             --region="${GCP_REGION}" \
             --no-allow-unauthenticated \
+            --service-account=flight-runtime@circle-search-508212.iam.gserviceaccount.com \
             --add-cloudsql-instances=circle-search-508212:us-central1:main-db \
             --vpc-connector=redis-connector \
             --set-build-env-vars=GOOGLE_BUILDABLE=./cmd/worker \
