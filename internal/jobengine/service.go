@@ -34,52 +34,13 @@ type Service struct {
 // graph lacks a direct origin→destination edge. A pair (A, B) is reachable if
 // there is a hub H such that A→H and H→B both exist in the route graph.
 var DefaultHubs = []string{
-	"LHR", // London Heathrow
-	"FRA", // Frankfurt
-	"AMS", // Amsterdam
-	"CDG", // Paris CDG
-	"IST", // Istanbul
-	"DUB", // Dublin
-	"MAD", // Madrid
-	"MUC", // Munich
-	"ZRH", // Zurich
-	"BCN", // Barcelona
-
-	// North America
-	"YYZ", // Toronto Pearson
-	"YVR", // Vancouver
-	"MEX", // Mexico City
-	"DFW", // Dallas Fort Worth
-	"ORD", // Chicago O'Hare
-	"ATL", // Hartsfield-Jackson Atlanta
-	"JFK", // John F. Kennedy
-	"LAX", // Los Angeles
-	"SFO", // San Francisco
-
-	// Latin America
-	"GRU", // São Paulo
-	"EZE", // Buenos Aires
-
-	// Middle East
-	"DXB", // Dubai
-	"DOH", // Doha
-
-	// Asia
-	"PEK", // Beijing
-	"PVG", // Shanghai Pudong
-	"HND", // Tokyo Haneda
-	"NRT", // Tokyo Narita
-	"ICN", // Seoul Incheon
-	"BKK", // Bangkok
-	"DEL", // Delhi
-	"BOM", // Mumbai
-
-	// Europe (additional)
-	"BRU", // Brussels
-	"MIL", // Milan
-
-	// Africa
-	"CAI", // Cairo
+	"LHR", "FRA", "AMS", "CDG", "IST", "DUB", "MAD", "MUC", "ZRH", "BCN",
+	"YYZ", "YVR", "MEX", "DFW", "ORD", "ATL", "JFK", "LAX", "SFO",
+	"GRU", "EZE",
+	"DXB", "DOH",
+	"PEK", "PVG", "HND", "NRT", "ICN", "BKK", "DEL", "BOM",
+	"BRU", "MIL",
+	"CAI",
 }
 
 func NewService(repo Repository, airports AirportSource, enqueuer Enqueuer) *Service {

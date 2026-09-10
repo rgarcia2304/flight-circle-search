@@ -34,12 +34,6 @@ func Load() (*Config, error) {
 		TravelpayoutsAPIKey: env("TRAVELPAYOUTS_API_KEY", ""),
 	}
 
-	if cfg.DatabaseURL == "" {
-		return nil, err("DATABASE_URL is required")
-	}
-	if cfg.SessionSigningKey == "" {
-		return nil, err("SESSION_SIGNING_KEY is required")
-	}
 	return cfg, nil
 }
 
