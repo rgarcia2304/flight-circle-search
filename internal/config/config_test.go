@@ -6,8 +6,8 @@ import (
 )
 
 var configEnvVars = []string{
-    "DATABASE_URL", "SESSION_SIGNING_KEY", "REDIS_URL", "API_ADDR",
-    "APP_ORIGIN", "HUBS", "CACHE_TTL_HOURS", "RATE_LIMIT_PER_DAY",
+    "DATABASE_URL", "SESSION_SIGNING_KEY", "REDIS_URL", "API_ADDR", "PORT",
+    "APP_ORIGIN", "HUBS", "ALLOWED_EMAILS", "CACHE_TTL_HOURS", "RATE_LIMIT_PER_DAY",
     "RESEND_API_KEY", "TRAVELPAYOUTS_API_KEY",
 }
 
@@ -31,6 +31,7 @@ func TestLoad_Defaults(t *testing.T) {
         assert.Equal(t, ":8080", cfg.APIAddr)
         assert.Equal(t, "http://localhost:5173", cfg.AppOrigin)
         assert.Nil(t, cfg.Hubs)
+        assert.Nil(t, cfg.AllowedEmails)
         assert.Equal(t, 24, cfg.CacheTTLHours)
         assert.Equal(t, 5, cfg.RateLimitPerDay)
         assert.Equal(t, "", cfg.ResendAPIKey)
@@ -47,6 +48,7 @@ func TestLoad_WithEnv(t *testing.T) {
     t.Setenv("API_ADDR", ":9090")
     t.Setenv("APP_ORIGIN", "http://example.com")
     t.Setenv("HUBS", "LHR, FRA, AMS")
+    t.Setenv("ALLOWED_EMAILS", "Alice@Example.com, bob@example.com")
     t.Setenv("CACHE_TTL_HOURS", "48")
     t.Setenv("RATE_LIMIT_PER_DAY", "100")
     t.Setenv("RESEND_API_KEY", "key123")
@@ -59,11 +61,33 @@ func TestLoad_WithEnv(t *testing.T) {
         assert.Equal(t, ":9090", cfg.APIAddr)
         assert.Equal(t, "http://example.com", cfg.AppOrigin)
         assert.Equal(t, []string{"LHR", "FRA", "AMS"}, cfg.Hubs)
+        assert.Equal(t, []string{"alice@example.com", "bob@example.com"}, cfg.AllowedEmails, "emails are lowercased for case-insensitive matching")
         assert.Equal(t, 48, cfg.CacheTTLHours)
         assert.Equal(t, 100, cfg.RateLimitPerDay)
         assert.Equal(t, "key123", cfg.ResendAPIKey)
         assert.Equal(t, "secret", cfg.SessionSigningKey)
         assert.Equal(t, "tp123", cfg.TravelpayoutsAPIKey)
+    }
+}
+
+func TestLoad_PortEnvOverridesAPIAddr(t *testing.T) {
+    clearConfigEnv(t)
+    t.Setenv("API_ADDR", ":9090")
+    t.Setenv("PORT", "8081")
+
+    cfg, err := Load()
+    if assert.NoError(t, err) {
+        assert.Equal(t, ":8081", cfg.APIAddr, "PORT (Cloud Run) must win over API_ADDR")
+    }
+}
+
+func TestLoad_PortEnvAloneSetsAPIAddr(t *testing.T) {
+    clearConfigEnv(t)
+    t.Setenv("PORT", "8081")
+
+    cfg, err := Load()
+    if assert.NoError(t, err) {
+        assert.Equal(t, ":8081", cfg.APIAddr)
     }
 }
 

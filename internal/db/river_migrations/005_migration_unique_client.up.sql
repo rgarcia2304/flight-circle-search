@@ -8,7 +8,7 @@ BEGIN
     -- Tolerate users who may be using their own migration system rather than
     -- River's. If they are, they will have skipped version 001 containing
     -- `CREATE TABLE river_migration`, so this table won't exist.
-    IF (SELECT to_regclass('/* TEMPLATE: schema */river_migration') IS NOT NULL) THEN
+    IF (SELECT to_regclass('river_migration') IS NOT NULL) THEN
         ALTER TABLE /* TEMPLATE: schema */river_migration
             RENAME TO river_migration_old;
 

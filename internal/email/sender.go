@@ -11,7 +11,11 @@ type Sender interface {
 	SendMagicLink(ctx context.Context, to, link string) error
 }
 
-const defaultFrom = "login@flightcircle.app"
+// defaultFrom uses Resend's built-in test sender, which works without any
+// domain verification. It's restricted to sending to the Resend account
+// owner's own address — fine for a demo deployment gated by an email
+// allowlist, not suitable for sending to arbitrary third-party recipients.
+const defaultFrom = "onboarding@resend.dev"
 
 // NewSender picks a Sender based on config: a real Resend-backed sender when
 // RESEND_API_KEY is set, otherwise a stdout fallback for local dev.

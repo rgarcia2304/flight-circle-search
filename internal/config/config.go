@@ -13,6 +13,7 @@ type Config struct {
 	APIAddr            string
 	AppOrigin          string
 	Hubs               []string
+	AllowedEmails      []string
 	CacheTTLHours      int
 	RateLimitPerDay    int
 	ResendAPIKey       string
@@ -24,9 +25,10 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL:        env("DATABASE_URL", "postgres://dev:dev@localhost:5432/flightsearch"),
 		RedisURL:           env("REDIS_URL", "redis://localhost:6379"),
-		APIAddr:            env("API_ADDR", ":8080"),
+		APIAddr:            apiAddr(),
 		AppOrigin:          env("APP_ORIGIN", "http://localhost:5173"),
 		Hubs:               parseHubs(env("HUBS", "")),
+		AllowedEmails:      parseAllowedEmails(env("ALLOWED_EMAILS", "")),
 		CacheTTLHours:      intOrDefault("CACHE_TTL_HOURS", 24),
 		RateLimitPerDay:    intOrDefault("RATE_LIMIT_PER_DAY", 5),
 		ResendAPIKey:       env("RESEND_API_KEY", ""),
@@ -42,6 +44,16 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// apiAddr resolves the HTTP listen address. Cloud Run sets PORT (not a
+// value we choose) and requires the container to listen on it; local dev
+// uses API_ADDR or the :8080 default instead.
+func apiAddr() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return ":" + port
+	}
+	return env("API_ADDR", ":8080")
 }
 
 func intOrDefault(key string, fallback int) int {
@@ -67,6 +79,24 @@ func parseHubs(s string) []string {
 		}
 	}
 	return hubs
+}
+
+// parseAllowedEmails parses a comma-separated ALLOWED_EMAILS list, normalized
+// to lowercase for case-insensitive matching. An empty list means no
+// restriction — anyone can request a magic link (the local-dev default).
+func parseAllowedEmails(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var emails []string
+	for _, p := range parts {
+		e := strings.ToLower(strings.TrimSpace(p))
+		if e != "" {
+			emails = append(emails, e)
+		}
+	}
+	return emails
 }
 
 func (c *Config) Validate() error {

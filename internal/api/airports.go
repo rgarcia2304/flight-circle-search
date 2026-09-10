@@ -3,36 +3,31 @@ package api
 import (
 	"bufio"
 	"context"
+	"embed"
 	"encoding/csv"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/rgarcia2304/flight-circle-search/internal/geo"
 	"github.com/rgarcia2304/flight-circle-search/internal/routes"
 )
 
-type csvAirportSource struct {
-	baseDir string
-}
+// dataFS embeds the airport/route reference data directly into the binary,
+// so airport resolution works regardless of the runtime filesystem layout
+// (e.g. Cloud Run's buildpacks-built image only ships the compiled binary,
+// not arbitrary files from the source tree).
+//
+//go:embed data/airports.csv data/routes.csv
+var dataFS embed.FS
+
+type csvAirportSource struct{}
 
 func newCSVAirportSource() *csvAirportSource {
-	if _, err := os.Stat("data/airports.csv"); err == nil {
-		return &csvAirportSource{}
-	}
-	if _, err := os.Stat("../data/airports.csv"); err == nil {
-		return &csvAirportSource{baseDir: ".."}
-	}
-	// Fallback: derive repo root from location of this source file.
-	_, thisFile, _, _ := runtime.Caller(0)
-	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(thisFile))) // up from internal/api
-	return &csvAirportSource{baseDir: repoRoot}
+	return &csvAirportSource{}
 }
 
 func (s *csvAirportSource) Airports(_ context.Context) ([]geo.Airport, error) {
-	f, err := os.Open(filepath.Join(s.baseDir, "data/airports.csv"))
+	f, err := dataFS.Open("data/airports.csv")
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +59,7 @@ func (s *csvAirportSource) Airports(_ context.Context) ([]geo.Airport, error) {
 }
 
 func (s *csvAirportSource) RouteGraph(_ context.Context) (routes.RouteGraph, error) {
-	f, err := os.Open(filepath.Join(s.baseDir, "data/routes.csv"))
+	f, err := dataFS.Open("data/routes.csv")
 	if err != nil {
 		return nil, err
 	}

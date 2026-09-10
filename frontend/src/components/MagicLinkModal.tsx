@@ -45,12 +45,12 @@ export function MagicLinkModal({ open, onClose }: MagicLinkModalProps) {
       onClick={handleClose}
     >
       <div
-        className="w-[360px] max-w-[calc(100vw-32px)] rounded-2xl border border-white/10 bg-[rgba(20,20,30,0.95)] p-6 text-white shadow-2xl backdrop-blur-xl"
+        className="w-[360px] max-w-[calc(100vw-32px)] rounded-2xl border border-white/10 bg-[rgba(18,18,18,0.95)] p-6 text-white shadow-2xl backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {status === 'sent' ? (
           <div className="text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#818cf8] to-[#f472b6] text-lg">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#0a0a0a]">
               ✓
             </div>
             <h2 className="text-base font-bold">Check your email</h2>
@@ -80,9 +80,9 @@ export function MagicLinkModal({ open, onClose }: MagicLinkModalProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               disabled={status === 'sending'}
-              className="mt-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#818cf8] focus:bg-[rgba(129,140,248,0.08)]"
+              className="mt-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none transition focus:border-white/50 focus:bg-white/[0.08]"
             />
-            {status === 'error' && <p className="mt-2 text-xs font-medium text-red-400">{errorMessage}</p>}
+            {status === 'error' && <p className="mt-2 text-xs font-semibold text-white/90">{errorMessage}</p>}
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
@@ -94,7 +94,7 @@ export function MagicLinkModal({ open, onClose }: MagicLinkModalProps) {
               <button
                 type="submit"
                 disabled={status === 'sending' || !email}
-                className="flex-1 rounded-lg bg-gradient-to-br from-[#818cf8] to-[#f472b6] py-2 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(129,140,248,0.3)] transition disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex-1 rounded-lg bg-white py-2 text-sm font-bold text-[#0a0a0a] shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {status === 'sending' ? 'Sending…' : 'Send link'}
               </button>

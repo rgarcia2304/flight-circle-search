@@ -76,7 +76,7 @@ func NewServer(cfg config.Config) (*Server, error) {
 	tokens := auth.NewTokenStore(redisClient, cfg.RateLimitPerDay)
 	sessions := auth.NewSessionStore(redisClient)
 	sender := email.NewSender(&cfg)
-	authHandlers := authhttp.NewAuthHandlers(tokens, sessions, sender, cfg.AppOrigin)
+	authHandlers := authhttp.NewAuthHandlers(tokens, sessions, sender, cfg.AppOrigin, cfg.AllowedEmails)
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /jobs", authhttp.RequireAuth(sessions)(makeSubmitHandler(svc)))
