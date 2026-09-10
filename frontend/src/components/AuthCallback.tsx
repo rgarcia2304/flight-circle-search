@@ -26,8 +26,8 @@ export function AuthCallback() {
   }, [token]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#0a0a14] font-sans text-white">
-      <div className="w-[360px] max-w-[calc(100vw-32px)] rounded-2xl border border-white/10 bg-[rgba(20,20,30,0.95)] p-6 text-center shadow-2xl">
+    <div className="fixed inset-0 flex items-center justify-center bg-[#0a0a0a] font-sans text-white">
+      <div className="w-[360px] max-w-[calc(100vw-32px)] rounded-2xl border border-white/10 bg-[rgba(18,18,18,0.95)] p-6 text-center shadow-2xl">
         {status === 'exchanging' && (
           <>
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
@@ -36,7 +36,7 @@ export function AuthCallback() {
         )}
         {status === 'success' && (
           <>
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#818cf8] to-[#f472b6] text-lg">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#0a0a0a]">
               ✓
             </div>
             <h1 className="text-base font-bold">Signed in</h1>
@@ -45,7 +45,7 @@ export function AuthCallback() {
             </p>
             <a
               href="/"
-              className="mt-5 block w-full rounded-lg bg-gradient-to-br from-[#818cf8] to-[#f472b6] py-2 text-sm font-semibold text-white"
+              className="mt-5 block w-full rounded-lg bg-white py-2 text-sm font-bold text-[#0a0a0a] transition hover:bg-white/90"
             >
               Back to search
             </a>

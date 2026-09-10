@@ -381,7 +381,7 @@ function App() {
         .app-shell {
           position: fixed;
           inset: 0;
-          background: #0a0a14;
+          background: #0a0a0a;
           font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Display", system-ui, sans-serif;
           color: white;
           -webkit-font-smoothing: antialiased;
@@ -408,7 +408,7 @@ function App() {
           display: flex;
           align-items: center;
           gap: 10px;
-          background: rgba(20, 20, 30, 0.75);
+          background: rgba(18, 18, 18, 0.75);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.08);
@@ -419,12 +419,12 @@ function App() {
         .brand-mark {
           width: 30px;
           height: 30px;
-          background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
+          background: #fff;
           border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: #0a0a0a;
         }
         .brand-title {
           font-size: 16px;
@@ -437,7 +437,7 @@ function App() {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: rgba(20, 20, 30, 0.75);
+          background: rgba(18, 18, 18, 0.75);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.08);
@@ -452,16 +452,16 @@ function App() {
           animation: hint-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .reset-button:hover {
-          background: rgba(40, 40, 60, 0.9);
+          background: rgba(255, 255, 255, 0.12);
           color: white;
-          border-color: rgba(239, 68, 68, 0.4);
+          border-color: rgba(255, 255, 255, 0.3);
         }
 
         .account-pill {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(20, 20, 30, 0.75);
+          background: rgba(18, 18, 18, 0.75);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.08);
@@ -491,15 +491,15 @@ function App() {
           transition: all 0.2s ease;
         }
         .account-logout:hover {
-          background: rgba(239, 68, 68, 0.15);
-          color: #fca5a5;
+          background: rgba(255, 255, 255, 0.15);
+          color: white;
         }
 
         .search-panel {
           display: flex;
           align-items: flex-end;
           gap: 10px;
-          background: rgba(20, 20, 30, 0.75);
+          background: rgba(18, 18, 18, 0.75);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.08);
@@ -533,26 +533,27 @@ function App() {
           width: 140px;
         }
         .date-input:focus {
-          border-color: #818cf8;
-          background: rgba(129, 140, 248, 0.08);
+          border-color: rgba(255, 255, 255, 0.5);
+          background: rgba(255, 255, 255, 0.08);
         }
         .search-button {
-          background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
+          background: #fff;
           border: none;
-          color: white;
+          color: #0a0a0a;
           padding: 10px 18px;
           border-radius: 9px;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           letter-spacing: -0.01em;
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 4px 16px rgba(129, 140, 248, 0.3);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
           white-space: nowrap;
         }
         .search-button:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(129, 140, 248, 0.5);
+          background: rgba(255, 255, 255, 0.88);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
         }
         .search-button:disabled {
           background: rgba(255,255,255,0.08);
@@ -584,7 +585,7 @@ function App() {
           z-index: 1000;
         }
         .hint {
-          background: rgba(20, 20, 30, 0.85);
+          background: rgba(18, 18, 18, 0.85);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(255,255,255,0.08);
@@ -599,21 +600,21 @@ function App() {
           animation: hint-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .hint--ready {
-          background: linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(244, 114, 182, 0.2) 100%);
-          border-color: rgba(129, 140, 248, 0.3);
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.3);
         }
         .hint strong { color: white; font-weight: 700; }
         .hint-icon {
           width: 22px;
           height: 22px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
+          background: #fff;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           font-size: 11px;
           font-weight: 700;
-          color: white;
+          color: #0a0a0a;
         }
         .hint kbd {
           display: inline-block;
@@ -637,14 +638,15 @@ function App() {
           top: 84px;
           left: 50%;
           transform: translateX(-50%);
-          background: rgba(239, 68, 68, 0.95);
+          background: rgba(18, 18, 18, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.3);
           color: white;
           padding: 10px 20px;
           border-radius: 10px;
           font-size: 13px;
-          font-weight: 500;
+          font-weight: 600;
           z-index: 1100;
-          box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
           animation: toast-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         @keyframes toast-pop {
@@ -660,10 +662,10 @@ function App() {
           display: flex;
           align-items: center;
           gap: 14px;
-          background: rgba(20, 20, 30, 0.95);
+          background: rgba(18, 18, 18, 0.95);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(239, 68, 68, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.3);
           padding: 10px 14px 10px 18px;
           border-radius: 14px;
           z-index: 1100;
@@ -701,11 +703,12 @@ function App() {
           color: white;
         }
         .confirm-btn--confirm {
-          background: #ef4444;
+          background: transparent;
+          border: 1.5px solid white;
           color: white;
         }
         .confirm-btn--confirm:hover {
-          background: #dc2626;
+          background: rgba(255, 255, 255, 0.15);
         }
       `}</style>
     </div>

@@ -139,7 +139,7 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
           left: 20px;
           right: 20px;
           max-height: 50vh;
-          background: rgba(20, 20, 30, 0.88);
+          background: rgba(18, 18, 18, 0.9);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.08);
@@ -208,7 +208,7 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
         }
         .result-card:hover {
           background: rgba(255,255,255,0.06);
-          border-color: rgba(129, 140, 248, 0.3);
+          border-color: rgba(255,255,255,0.25);
           transform: translateX(2px);
         }
         @keyframes card-pop {
@@ -258,18 +258,18 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
         .result-transfers {
           font-size: 10px;
           font-weight: 600;
-          color: rgba(129, 140, 248, 0.9);
-          background: rgba(129, 140, 248, 0.12);
-          border: 1px solid rgba(129, 140, 248, 0.2);
+          color: rgba(255, 255, 255, 0.75);
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
           padding: 1px 7px;
           border-radius: 999px;
         }
         .result-cached-badge {
           font-size: 10px;
           font-weight: 600;
-          color: rgba(52, 211, 153, 0.9);
-          background: rgba(52, 211, 153, 0.12);
-          border: 1px solid rgba(52, 211, 153, 0.25);
+          color: rgba(255, 255, 255, 0.75);
+          background: transparent;
+          border: 1px dashed rgba(255, 255, 255, 0.3);
           padding: 1px 7px;
           border-radius: 999px;
         }
@@ -282,8 +282,8 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
-          color: white;
+          background: #fff;
+          color: #0a0a0a;
           text-decoration: none;
           font-size: 12px;
           font-weight: 700;
@@ -291,12 +291,13 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
           padding: 8px 14px;
           border-radius: 8px;
           white-space: nowrap;
-          box-shadow: 0 4px 12px rgba(129, 140, 248, 0.25);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .result-book-btn:hover {
           transform: translateY(-1px);
-          box-shadow: 0 6px 18px rgba(244, 114, 182, 0.4);
+          background: rgba(255, 255, 255, 0.88);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
         }
         .result-book-btn:active {
           transform: translateY(0);
@@ -308,15 +309,13 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
           font-size: 13px;
         }
         .results-empty--error {
-          color: rgba(252, 165, 165, 0.9);
+          color: rgba(255, 255, 255, 0.85);
+          font-weight: 600;
         }
         .result-price {
           font-size: 18px;
           font-weight: 700;
-          background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
+          color: #fff;
           letter-spacing: -0.02em;
         }
       `}</style>
