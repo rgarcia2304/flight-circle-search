@@ -15,11 +15,19 @@ import (
 
 // --- mocks ---
 
+type markJobStatusCall struct {
+	id     uuid.UUID
+	status JobStatus
+	errMsg *string
+}
+
 type mockRepo struct {
-	mu         sync.Mutex
-	createdJob *SearchJob
-	created    []SearchJobResult
-	pending    map[uuid.UUID][]SearchJobResult
+	mu              sync.Mutex
+	createdJob      *SearchJob
+	created         []SearchJobResult
+	pending         map[uuid.UUID][]SearchJobResult
+	getPendingErr   error
+	markStatusCalls []markJobStatusCall
 }
 
 func (m *mockRepo) CreateJob(_ context.Context, job SearchJob, pairs []SearchJobResult) (uuid.UUID, error) {
@@ -58,6 +66,9 @@ func (m *mockRepo) ListResults(_ context.Context, _ uuid.UUID) ([]SearchJobResul
 func (m *mockRepo) GetPendingResults(_ context.Context, jobID uuid.UUID) ([]SearchJobResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.getPendingErr != nil {
+		return nil, m.getPendingErr
+	}
 	return m.pending[jobID], nil
 }
 
@@ -75,7 +86,10 @@ func (m *mockRepo) MarkResultDeadLetter(_ context.Context, _ int64, _ string) er
 
 func (m *mockRepo) UpdateJobProgress(_ context.Context, _ uuid.UUID) error { return nil }
 
-func (m *mockRepo) MarkJobStatus(_ context.Context, _ uuid.UUID, _ JobStatus, _ *string) error {
+func (m *mockRepo) MarkJobStatus(_ context.Context, id uuid.UUID, status JobStatus, errMsg *string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.markStatusCalls = append(m.markStatusCalls, markJobStatusCall{id: id, status: status, errMsg: errMsg})
 	return nil
 }
 
@@ -189,6 +203,55 @@ func TestService_TooManyPairsRejected(t *testing.T) {
 	}
 	if total != 12 {
 		t.Errorf("total = %d, want 12 (count should still be reported)", total)
+	}
+}
+
+func TestService_EnqueueFailure_MarksJobFailed(t *testing.T) {
+	repo := &mockRepo{}
+	enq := &mockEnqueuer{err: errors.New("queue unavailable")}
+	svc := NewService(repo, &mockAirports{airports: newTestAirports(), graph: newTestGraph()}, enq)
+
+	id, _, err := svc.Submit(context.Background(), validRequest())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if id == uuid.Nil {
+		t.Fatal("expected the job id to still be returned so the caller can reference it")
+	}
+
+	if len(repo.markStatusCalls) != 1 {
+		t.Fatalf("MarkJobStatus called %d times, want 1", len(repo.markStatusCalls))
+	}
+	call := repo.markStatusCalls[0]
+	if call.id != id {
+		t.Errorf("MarkJobStatus id = %v, want %v", call.id, id)
+	}
+	if call.status != StatusFailed {
+		t.Errorf("MarkJobStatus status = %v, want %v", call.status, StatusFailed)
+	}
+	if call.errMsg == nil || *call.errMsg == "" {
+		t.Error("expected a non-empty error summary explaining the enqueue failure")
+	}
+}
+
+func TestService_GetPendingResultsFailure_MarksJobFailed(t *testing.T) {
+	repo := &mockRepo{getPendingErr: errors.New("db unavailable")}
+	enq := &mockEnqueuer{}
+	svc := NewService(repo, &mockAirports{airports: newTestAirports(), graph: newTestGraph()}, enq)
+
+	_, _, err := svc.Submit(context.Background(), validRequest())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if len(repo.markStatusCalls) != 1 {
+		t.Fatalf("MarkJobStatus called %d times, want 1", len(repo.markStatusCalls))
+	}
+	if repo.markStatusCalls[0].status != StatusFailed {
+		t.Errorf("MarkJobStatus status = %v, want %v", repo.markStatusCalls[0].status, StatusFailed)
+	}
+	if len(enq.items) != 0 {
+		t.Error("nothing should have been enqueued")
 	}
 }
 
