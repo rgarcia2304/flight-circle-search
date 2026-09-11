@@ -5,6 +5,10 @@ MAINTENANCE.md
 bin/
 __pycache__/
 venv/
+
+# Local-only fare-data scraping experiment — not for the public repo, see
+# scripts/fare-scrape-poc/README.md for why.
+scripts/fare-scrape-poc/
 go-mutesting-agentic.json
 mutation-report.txt
 report.json
