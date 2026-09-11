@@ -1,6 +1,5 @@
-import { test, expect, request, type APIResponse } from '@playwright/test';
-
-const API = 'http://localhost:8080';
+import { test, expect, type APIResponse } from '@playwright/test';
+import { liveApiContext } from './live-auth';
 
 interface SearchRequest {
   origin_lat: number;
@@ -40,14 +39,14 @@ interface JobResponse {
 }
 
 async function submitJob(req: SearchRequest): Promise<{ job_id: string; total_pairs: number }> {
-  const ctx = await request.newContext({ baseURL: API });
+  const ctx = await liveApiContext();
   const res: APIResponse = await ctx.post('/jobs', { data: req });
   expect(res.status(), `submit ${res.status()}`).toBe(202);
   return res.json();
 }
 
 async function pollJob(id: string, timeoutMs = 90_000): Promise<JobResponse> {
-  const ctx = await request.newContext({ baseURL: API });
+  const ctx = await liveApiContext();
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const res = await ctx.get(`/jobs/${id}?include=results`);

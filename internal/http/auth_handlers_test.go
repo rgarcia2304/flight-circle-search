@@ -321,3 +321,48 @@ func TestSetSessionCookie_SameSiteNoneForHTTPSOrigin(t *testing.T) {
 		t.Error("Secure = false, want true for https:// origin")
 	}
 }
+
+func TestAuthHandlers_IssueTestToken_UsableAgainstCallback(t *testing.T) {
+	h, sender := newTestAuthHandlers(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/test-token", strings.NewReader(`{"email":"e2e@example.com"}`))
+	rec := httptest.NewRecorder()
+	h.IssueTestToken(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("IssueTestToken status = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	// It bypasses the allowlist and never touches the sender.
+	if sender.linkFor("e2e@example.com") != "" {
+		t.Error("IssueTestToken should not send an email")
+	}
+
+	// The token is real: it should work against the actual callback handler.
+	cbReq := httptest.NewRequest(http.MethodGet, "/v1/auth/callback?token="+body.Token, nil)
+	cbRec := httptest.NewRecorder()
+	h.Callback(cbRec, cbReq)
+	if cbRec.Code != http.StatusOK {
+		t.Fatalf("Callback status = %d, want %d, body=%s", cbRec.Code, http.StatusOK, cbRec.Body.String())
+	}
+}
+
+func TestAuthHandlers_IssueTestToken_InvalidEmail(t *testing.T) {
+	h, _ := newTestAuthHandlers(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/test-token", strings.NewReader(`{"email":"not-an-email"}`))
+	rec := httptest.NewRecorder()
+	h.IssueTestToken(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}

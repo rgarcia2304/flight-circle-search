@@ -1,6 +1,5 @@
-import { test, expect, request, type APIResponse } from '@playwright/test';
-
-const API = 'http://localhost:8080';
+import { test, expect, type APIResponse } from '@playwright/test';
+import { liveApiContext } from './live-auth';
 
 interface Fare {
   Price: number;
@@ -31,7 +30,7 @@ interface JobResponse {
 test.describe('Live E2E: pair coverage (assert every pair works)', () => {
   test('all 10 pairs from small NYC↔LDN return complete fares', async () => {
     test.setTimeout(120_000);
-    const ctx = await request.newContext({ baseURL: API });
+    const ctx = await liveApiContext();
     const res: APIResponse = await ctx.post('/jobs', {
       data: {
         origin_lat: 40.7128,

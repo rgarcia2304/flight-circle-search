@@ -101,6 +101,32 @@ func (h *AuthHandlers) RequestMagicLink(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "sent"})
 }
 
+// IssueTestToken handles POST /v1/auth/test-token — it skips the allowlist
+// and email delivery, returning a raw magic-link token directly.
+//
+// Only ever registered when E2E_TEST_MODE is set (see NewServer); never
+// wired up in a real deployment. Exists so live e2e tests can authenticate
+// against a running backend over HTTP instead of duplicating the token
+// store's Redis key format in TypeScript.
+func (h *AuthHandlers) IssueTestToken(w http.ResponseWriter, r *http.Request) {
+	var req magicLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", err.Error())
+		return
+	}
+	addr, err := mail.ParseAddress(req.Email)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_email", "email must be a valid address")
+		return
+	}
+	token, err := h.tokens.Issue(r.Context(), addr.Address)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
 type callbackResponse struct {
 	Email string `json:"email"`
 }

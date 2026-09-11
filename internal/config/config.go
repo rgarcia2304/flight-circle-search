@@ -19,6 +19,7 @@ type Config struct {
 	ResendAPIKey       string
 	SessionSigningKey  string
 	TravelpayoutsAPIKey string
+	E2ETestMode        bool
 }
 
 func Load() (*Config, error) {
@@ -34,6 +35,7 @@ func Load() (*Config, error) {
 		ResendAPIKey:       env("RESEND_API_KEY", ""),
 		SessionSigningKey:  env("SESSION_SIGNING_KEY", ""),
 		TravelpayoutsAPIKey: env("TRAVELPAYOUTS_API_KEY", ""),
+		E2ETestMode:        env("E2E_TEST_MODE", "") == "true",
 	}
 
 	return cfg, nil

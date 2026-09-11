@@ -1,6 +1,5 @@
-import { test, expect, request } from '@playwright/test';
-
-const API = 'http://localhost:8080';
+import { test, expect } from '@playwright/test';
+import { liveApiContext } from './live-auth';
 
 interface SearchRequest {
   origin_lat: number;
@@ -40,7 +39,7 @@ interface JobResponse {
 test.describe('Live E2E: medium route (NYC↔LAX, 200km)', () => {
   test('completes with no hard failures and surfaces real fares', async () => {
     test.setTimeout(200_000);
-    const ctx = await request.newContext({ baseURL: API });
+    const ctx = await liveApiContext();
     const res = await ctx.post('/jobs', {
       data: {
         origin_lat: 40.7128,
