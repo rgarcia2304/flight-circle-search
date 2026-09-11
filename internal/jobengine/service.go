@@ -3,6 +3,7 @@ package jobengine
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,9 +88,14 @@ func (s *Service) Submit(ctx context.Context, req SearchRequest) (uuid.UUID, int
 	// Read back the inserted result rows to get their auto-generated IDs.
 	inserted, err := s.repo.GetPendingResults(ctx, id)
 	if err != nil {
+		s.markFailedBestEffort(ctx, id, fmt.Errorf("fetch result ids: %w", err))
 		return id, len(results), fmt.Errorf("fetch result ids: %w", err)
 	}
 	if err := s.enqueuer.EnqueueBatch(ctx, inserted); err != nil {
+		// The job's rows are already committed as pending, but nothing was ever
+		// queued to process them — left alone, this job would sit reporting
+		// "pending" forever instead of surfacing the failure.
+		s.markFailedBestEffort(ctx, id, fmt.Errorf("enqueue: %w", err))
 		return id, len(results), fmt.Errorf("enqueue: %w", err)
 	}
 
@@ -184,4 +190,15 @@ func expandDateRange(from, to string) ([]string, error) {
 		out = append(out, d.Format("2006-01-02"))
 	}
 	return out, nil
+}
+
+// markFailedBestEffort marks a job failed after its rows are already
+// committed but couldn't be enqueued. It's best-effort: if the status update
+// itself fails, the job is left as-is (still pending) rather than losing the
+// original error — the caller's returned error is what actually surfaces.
+func (s *Service) markFailedBestEffort(ctx context.Context, id uuid.UUID, cause error) {
+	msg := cause.Error()
+	if err := s.repo.MarkJobStatus(ctx, id, StatusFailed, &msg); err != nil {
+		log.Printf("job %s: failed to mark failed after enqueue error (job left pending): %v", id, err)
+	}
 }
