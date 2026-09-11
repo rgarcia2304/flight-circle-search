@@ -70,13 +70,17 @@ func NewRunner(cfg config.Config) (*Runner, error) {
 	rl := NewRateLimiter(2, 4) // 2 RPS, max 4 in-flight — be gentle to avoid provider rate-limit
 	fw := NewFareWorker(repo, fp, rl)
 
+	rw := NewRetentionWorker(repo)
+
 	workers := river.NewWorkers()
 	river.AddWorker(workers, fw)
+	river.AddWorker(workers, rw)
 
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues:  map[string]river.QueueConfig{searchQueue: {MaxWorkers: 4}},
-		Workers: workers,
-		Schema:  "public",
+		Queues:       map[string]river.QueueConfig{searchQueue: {MaxWorkers: 4}},
+		Workers:      workers,
+		Schema:       "public",
+		PeriodicJobs: []*river.PeriodicJob{retentionPeriodicJob()},
 	})
 	if err != nil {
 		_ = fareCache.Close()

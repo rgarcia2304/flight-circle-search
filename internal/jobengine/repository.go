@@ -363,3 +363,13 @@ func (r *PostgresRepository) MarkJobStatus(ctx context.Context, id uuid.UUID, st
 func (r *PostgresRepository) EnqueueJob(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+
+// DeleteJobsOlderThan removes search_jobs (and, via ON DELETE CASCADE, their
+// search_job_results) submitted before cutoff. Returns the number of jobs deleted.
+func (r *PostgresRepository) DeleteJobsOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.db.Exec(ctx, `DELETE FROM search_jobs WHERE submitted_at < $1`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("delete old jobs: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
