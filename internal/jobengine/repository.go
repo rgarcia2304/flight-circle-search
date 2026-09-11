@@ -328,14 +328,21 @@ func (r *PostgresRepository) MarkJobCompleteIfDone(ctx context.Context, id uuid.
 		finalStatus = StatusFailed
 	}
 
-	if _, err := r.db.Exec(ctx, `
+	// Finalize from either 'pending' or 'running': a job whose post-enqueue
+	// MarkJobStatus(Running) call itself failed is stuck at 'pending' even
+	// though its rows were successfully enqueued and are now all done —
+	// gating on 'running' alone left that job permanently unfinalized. The
+	// IN-list still makes this idempotent: once status becomes 'complete' or
+	// 'failed' it no longer matches, so a racing second call is a no-op.
+	tag, err := r.db.Exec(ctx, `
 		UPDATE search_jobs
 		SET status = $1, completed_at = now()
-		WHERE id = $2 AND status = 'running'
-	`, string(finalStatus), id); err != nil {
+		WHERE id = $2 AND status IN ('pending', 'running')
+	`, string(finalStatus), id)
+	if err != nil {
 		return false, fmt.Errorf("mark complete: %w", err)
 	}
-	return true, nil
+	return tag.RowsAffected() > 0, nil
 }
 
 func (r *PostgresRepository) MarkJobStatus(ctx context.Context, id uuid.UUID, status JobStatus, errSummary *string) error {
