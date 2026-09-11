@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:debug": "playwright test tests/debug",
     "test:e2e": "playwright test tests/e2e --workers=1",
+    "test:e2e:live": "playwright test --config=playwright.live.config.ts",
     "test": "npm run test:debug && npm run test:e2e"
   },
   "dependencies": {

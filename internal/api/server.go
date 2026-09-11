@@ -87,6 +87,13 @@ func NewServer(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /v1/auth/callback", authHandlers.Callback)
 	mux.HandleFunc("POST /v1/auth/logout", authHandlers.Logout)
 	mux.Handle("GET /v1/auth/session", authhttp.RequireAuth(sessions)(http.HandlerFunc(authHandlers.Session)))
+	if cfg.E2ETestMode {
+		// Only ever registered when E2E_TEST_MODE=true — never set in any real
+		// deployment (deploy.yml doesn't set it). Lets live e2e tests authenticate
+		// against a running backend over HTTP without duplicating Redis token
+		// key/hash logic in TypeScript.
+		mux.HandleFunc("POST /v1/auth/test-token", authHandlers.IssueTestToken)
+	}
 
 	var handler http.Handler = mux
 	handler = authhttp.CORS(cfg.AppOrigin)(handler)
