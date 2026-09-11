@@ -61,11 +61,12 @@ func NewRunner(cfg config.Config) (*Runner, error) {
 	}
 
 	repo := jobengine.NewPostgresRepository(pool)
-	fp := fareprovider.NewTravelpayouts(cfg.TravelpayoutsAPIKey, "", nil)
-	if cfg.TravelpayoutsAPIKey == "" {
-		log.Println("warning: TRAVELPAYOUTS_API_KEY not set; worker will fail on all fare searches")
+	fp, err := newFareProvider(cfg, fareCache)
+	if err != nil {
+		pool.Close()
+		_ = fareCache.Close()
+		return nil, err
 	}
-	fp.SetCache(fareCache, time.Duration(cfg.CacheTTLHours)*time.Hour)
 
 	rl := NewRateLimiter(2, 4) // 2 RPS, max 4 in-flight — be gentle to avoid provider rate-limit
 	fw := NewFareWorker(repo, fp, rl)
@@ -130,6 +131,28 @@ func (r *Runner) Run(ctx context.Context) error {
 		return fmt.Errorf("stop river client: %w", err)
 	}
 	return nil
+}
+
+// newFareProvider selects the fare provider from cfg.FareProviderKind.
+// "googleflights" is a local/personal-use-only escape hatch (see
+// fareprovider.GoogleFlightsScraper's doc comment) — never set
+// FARE_PROVIDER=googleflights in any deployed environment; deploy.yml
+// doesn't, and it shouldn't start.
+func newFareProvider(cfg config.Config, fareCache *cache.RedisCache) (fareprovider.FareProvider, error) {
+	switch cfg.FareProviderKind {
+	case "googleflights":
+		log.Println("warning: using the local-only Google Flights scraper as the fare provider — never deploy with FARE_PROVIDER=googleflights set")
+		return fareprovider.NewGoogleFlightsScraper(cfg.GoogleFlightsPythonBin, cfg.GoogleFlightsScriptPath), nil
+	case "", "travelpayouts":
+		tp := fareprovider.NewTravelpayouts(cfg.TravelpayoutsAPIKey, "", nil)
+		if cfg.TravelpayoutsAPIKey == "" {
+			log.Println("warning: TRAVELPAYOUTS_API_KEY not set; worker will fail on all fare searches")
+		}
+		tp.SetCache(fareCache, time.Duration(cfg.CacheTTLHours)*time.Hour)
+		return tp, nil
+	default:
+		return nil, fmt.Errorf("unknown FARE_PROVIDER %q (want \"travelpayouts\" or \"googleflights\")", cfg.FareProviderKind)
+	}
 }
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {

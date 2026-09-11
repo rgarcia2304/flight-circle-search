@@ -8,34 +8,46 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string
-	RedisURL           string
-	APIAddr            string
-	AppOrigin          string
-	Hubs               []string
-	AllowedEmails      []string
-	CacheTTLHours      int
-	RateLimitPerDay    int
-	ResendAPIKey       string
-	SessionSigningKey  string
+	DatabaseURL         string
+	RedisURL            string
+	APIAddr             string
+	AppOrigin           string
+	Hubs                []string
+	AllowedEmails       []string
+	CacheTTLHours       int
+	RateLimitPerDay     int
+	ResendAPIKey        string
+	SessionSigningKey   string
 	TravelpayoutsAPIKey string
-	E2ETestMode        bool
+	E2ETestMode         bool
+
+	// FareProviderKind selects the worker's fare provider. Defaults to
+	// "travelpayouts". "googleflights" is a LOCAL/PERSONAL-USE-ONLY escape
+	// hatch — see internal/fareprovider/googleflights.go's doc comment.
+	// Never set in any deployed environment.
+	FareProviderKind        string
+	GoogleFlightsPythonBin  string
+	GoogleFlightsScriptPath string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:        env("DATABASE_URL", "postgres://dev:dev@localhost:5432/flightsearch"),
-		RedisURL:           env("REDIS_URL", "redis://localhost:6379"),
-		APIAddr:            apiAddr(),
-		AppOrigin:          env("APP_ORIGIN", "http://localhost:5173"),
-		Hubs:               parseHubs(env("HUBS", "")),
-		AllowedEmails:      parseAllowedEmails(env("ALLOWED_EMAILS", "")),
-		CacheTTLHours:      intOrDefault("CACHE_TTL_HOURS", 24),
-		RateLimitPerDay:    intOrDefault("RATE_LIMIT_PER_DAY", 5),
-		ResendAPIKey:       env("RESEND_API_KEY", ""),
-		SessionSigningKey:  env("SESSION_SIGNING_KEY", ""),
+		DatabaseURL:         env("DATABASE_URL", "postgres://dev:dev@localhost:5432/flightsearch"),
+		RedisURL:            env("REDIS_URL", "redis://localhost:6379"),
+		APIAddr:             apiAddr(),
+		AppOrigin:           env("APP_ORIGIN", "http://localhost:5173"),
+		Hubs:                parseHubs(env("HUBS", "")),
+		AllowedEmails:       parseAllowedEmails(env("ALLOWED_EMAILS", "")),
+		CacheTTLHours:       intOrDefault("CACHE_TTL_HOURS", 24),
+		RateLimitPerDay:     intOrDefault("RATE_LIMIT_PER_DAY", 5),
+		ResendAPIKey:        env("RESEND_API_KEY", ""),
+		SessionSigningKey:   env("SESSION_SIGNING_KEY", ""),
 		TravelpayoutsAPIKey: env("TRAVELPAYOUTS_API_KEY", ""),
-		E2ETestMode:        env("E2E_TEST_MODE", "") == "true",
+		E2ETestMode:         env("E2E_TEST_MODE", "") == "true",
+
+		FareProviderKind:        env("FARE_PROVIDER", "travelpayouts"),
+		GoogleFlightsPythonBin:  env("GOOGLE_FLIGHTS_PYTHON_BIN", "scripts/fare-scrape-poc/venv/bin/python3"),
+		GoogleFlightsScriptPath: env("GOOGLE_FLIGHTS_SCRIPT_PATH", "scripts/fare-scrape-poc/query_json.py"),
 	}
 
 	return cfg, nil
