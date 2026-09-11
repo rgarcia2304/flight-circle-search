@@ -43,7 +43,7 @@ jobs:
             --add-cloudsql-instances=circle-search-508212:us-central1:main-db \
             --vpc-connector=redis-connector \
             --set-build-env-vars=GOOGLE_BUILDABLE=./cmd/api \
-            --set-env-vars="REDIS_URL=redis://10.180.57.171:6379,APP_ORIGIN=https://circle-search-508212.web.app,ALLOWED_EMAILS=rgarcia22141@gmail.com" \
+            --set-env-vars="^;^REDIS_URL=redis://10.180.57.171:6379;APP_ORIGIN=https://circle-search-508212.web.app;ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS }}" \
             --set-secrets="DATABASE_URL=database-url:latest,SESSION_SIGNING_KEY=session-signing-key:latest,TRAVELPAYOUTS_API_KEY=travelpayouts-api-key:latest,RESEND_API_KEY=resend-api-key:latest" \
             --quiet
 
