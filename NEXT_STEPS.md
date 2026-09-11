@@ -64,7 +64,7 @@ The app is deployed and demo-ready. What's left, prioritized.
 5. [x] **Fix `tests/e2e/live-*.spec.ts`.** Was stale since Day 3 — submitted jobs with no login step against the now-auth-gated `/jobs`. Fixed via a test-only `E2E_TEST_MODE`-gated token endpoint + a Playwright global-setup that authenticates and writes a `storageState`. Run manually with `npm run test:e2e:live` against a locally running backend.
 
 ### Tier 2 — documentation/completion
-6. **Finish `README.md`** — pitch, architecture diagram (mermaid), quick start, magic-link flow, deploy steps, trade-offs, what's missing.
+6. [x] **Finish `README.md`** — pitch, architecture diagram (mermaid), quick start, magic-link flow, deploy steps, trade-offs, what's missing. See PR #31.
 7. **Demo video.**
 
 ### Tier 3 — real, but lower priority for a solo demo project
