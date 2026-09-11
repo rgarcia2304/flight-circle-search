@@ -29,6 +29,14 @@ function airlineName(code: string): string {
   return airlineNames[code] ?? code;
 }
 
+/** Fare.Link is relative for Travelpayouts (e.g. "/search/EWR...") but a
+ * complete URL for other providers (Duffel, the local-only Google Flights
+ * scraper) — use it as-is when it already has a scheme, otherwise treat it
+ * as an Aviasales-relative path. */
+function bookingUrl(link: string): string {
+  return /^https?:\/\//.test(link) ? link : `https://www.aviasales.com${link}`;
+}
+
 function formatDepartureTime(iso: string, fallbackDate: string): string {
   if (!iso) return fallbackDate;
   const d = new Date(iso);
@@ -117,7 +125,7 @@ export function ResultsPanel({ searching, results, jobProgress, error, onClose }
               {r.link && (
                 <a
                   className="result-book-btn"
-                  href={`https://www.aviasales.com${r.link}`}
+                  href={bookingUrl(r.link)}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Book ${r.origin} to ${r.dest} for $${r.price}`}
